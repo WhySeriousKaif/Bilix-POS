@@ -12,7 +12,6 @@ import {
   Package,
   Activity,
   ArrowUpRight,
-  Sparkles,
   Building2,
   Calendar,
   Layers,
@@ -204,31 +203,16 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 size-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30 flex items-center gap-1">
-                <Sparkles className="size-3" /> Live Operations
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Branch Manager Dashboard</h1>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">Real-time store performance, daily transactions, and staff overview.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={fetchDashboardData}
-              variant="outline"
-              size="sm"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold text-xs gap-2"
-            >
-              <RefreshCw className="size-3.5" />
-              Refresh Data
-            </Button>
-          </div>
+      {/* Page heading — shared admin-panel visual language */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Live operations</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">Branch Manager Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Real-time performance, transactions, and staff overview.</p>
         </div>
+        <Button onClick={fetchDashboardData} variant="outline" size="sm" className="gap-2 cursor-pointer">
+          <RefreshCw className="size-3.5" /> Refresh Data
+        </Button>
       </div>
 
       {/* KPI Cards */}

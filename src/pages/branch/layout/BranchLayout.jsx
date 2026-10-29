@@ -171,7 +171,7 @@ const BranchLayout = ({ children }) => {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden h-9 w-9 text-slate-600 dark:text-slate-400"
+            className="lg:hidden h-9 w-9 text-slate-600 dark:text-slate-400"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="size-5" />
@@ -283,7 +283,7 @@ const BranchLayout = ({ children }) => {
         {/* Desktop Collapsible Sidebar */}
         <aside
           className={cn(
-            'hidden md:flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-200 relative shrink-0',
+            'hidden lg:flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-white/10 transition-all duration-200 relative shrink-0',
             collapsed ? 'w-[76px]' : 'w-64'
           )}
         >
