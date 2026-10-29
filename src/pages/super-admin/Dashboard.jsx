@@ -3,17 +3,8 @@ import { RefreshCw, Store, TrendingUp, Clock, Undo2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { storeAPI, branchAPI, orderAPI, refundAPI } from '@/services/api'
 import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 
 const STATUS_COLORS = { Pending: '#F59E0B', Active: '#2563EB', Blocked: '#EF4444' }
@@ -267,12 +258,9 @@ const SuperAdminDashboard = () => {
             <ResponsiveContainer width="100%" height={180}>
               <PieChart>
                 <Pie data={statusData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} dataKey="value">
-                  {statusData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
+                  {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
-                <Tooltip />
-                <Legend iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -285,12 +273,9 @@ const SuperAdminDashboard = () => {
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie data={storeSalesData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} dataKey="value">
-                    {storeSalesData.map((entry, i) => (
-                      <Cell key={i} fill={STORE_SALES_COLORS[i % STORE_SALES_COLORS.length]} />
-                    ))}
+                    {storeSalesData.map((entry, i) => <Cell key={i} fill={STORE_SALES_COLORS[i % STORE_SALES_COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(value) => `₹${value.toFixed(2)}`} />
-                  <Legend iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value) => `₹${value.toFixed(2)}`} /><Legend iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             )}

@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
 import Navbar from '@/components/layout/Navbar'
-import { Carousel, Card as AppleCard } from '@/components/ui/apple-cards-carousel'
-import { CometCard } from '@/components/ui/comet-card'
-import { InfiniteMovingCards } from '@/components/ui/infinite-moving-cards'
-import { GlowingEffect } from '@/components/ui/glowing-effect'
 import {
   ShoppingCart,
   BarChart3,
@@ -26,6 +21,162 @@ import {
 import logoP from '@/assets/logo_p_transparent.png'
 import { testimonials } from '@/data/testimonials'
 import { subscriptionPlanAPI } from '@/services/api'
+
+function SimpleBenefitCard({ card }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <article
+        className="relative h-[480px] w-[310px] sm:w-[330px] md:w-[350px] shrink-0 overflow-hidden rounded-[2.2rem] border border-slate-200/20 bg-slate-950 text-left shadow-lg transition-transform duration-300 hover:scale-[1.02] hover:shadow-2xl"
+      >
+        <img src={card.src} alt={card.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 hover:scale-105" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/35" />
+        <div className="relative z-10 flex h-full flex-col justify-between p-7 md:p-8">
+          <div>
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-blue-300">{card.category}</p>
+            <h3 className="font-mono text-[22px] font-bold leading-[1.28] text-white">{card.title}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="self-start cursor-pointer border-b border-blue-400/60 pb-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-blue-300 hover:border-white hover:text-white"
+          >
+            View details →
+          </button>
+        </div>
+      </article>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4" onClick={() => setOpen(false)}>
+          <div className="relative my-8 w-full max-w-3xl rounded-[2rem] bg-white p-6 text-slate-900 shadow-2xl dark:bg-slate-900 dark:text-white md:p-10" onClick={(event) => event.stopPropagation()}>
+            <button type="button" onClick={() => setOpen(false)} className="absolute right-5 top-5 cursor-pointer rounded-full bg-slate-100 px-3 py-2 text-xl dark:bg-slate-800" aria-label="Close details">×</button>
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-blue-700 dark:text-blue-300">{card.category}</p>
+            <h3 className="mb-6 text-2xl font-black md:text-3xl">{card.title}</h3>
+            <img src={card.src} alt={card.title} className="mb-6 h-64 w-full rounded-2xl object-cover md:h-80" />
+            {card.content}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function SimpleBenefitsCarousel({ children }) {
+  const listRef = React.useRef(null)
+  const move = (amount) => listRef.current?.scrollBy({ left: amount, behavior: 'smooth' })
+
+  return (
+    <div className="relative w-full">
+      <div className="mb-8 flex justify-end gap-3 px-4 md:px-12">
+        <button type="button" onClick={() => move(-380)} className="h-12 w-12 cursor-pointer rounded-full border border-slate-300 bg-white text-2xl text-slate-700 shadow-md" aria-label="Previous benefit">←</button>
+        <button type="button" onClick={() => move(380)} className="h-12 w-12 cursor-pointer rounded-full border border-slate-300 bg-white text-2xl text-slate-700 shadow-md" aria-label="Next benefit">→</button>
+      </div>
+      <div ref={listRef} className="flex gap-6 overflow-x-auto px-4 py-4 [scrollbar-width:none] md:px-12 [&::-webkit-scrollbar]:hidden">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function PlatformPreviewItem({ item, reverse }) {
+  return (
+    <div className={`flex flex-col items-center gap-10 lg:gap-16 ${reverse ? 'lg:flex-row-reverse' : 'lg:flex-row'}`}>
+      <div className="w-full shrink-0 text-center lg:w-1/2 lg:text-left">
+        <span className="mb-4 inline-block rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+          {item.role}
+        </span>
+        <h3 className="mb-3 text-2xl font-black leading-tight text-slate-900 dark:text-white sm:text-3xl">
+          {item.title}
+        </h3>
+        <p className="mx-auto max-w-md text-base leading-relaxed text-slate-600 dark:text-slate-400 lg:mx-0">
+          {item.description}
+        </p>
+      </div>
+
+      <div className="w-full lg:w-1/2">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xl shadow-slate-900/10 dark:border-white/10 dark:shadow-black/40">
+          <img src={item.image} alt={item.title} className="block h-auto w-full" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SimplePricingCard({ plan, onStart }) {
+  return (
+    <article className={`relative flex h-full flex-col rounded-2xl border p-8 shadow-lg transition-transform hover:-translate-y-1 hover:shadow-xl ${plan.popular
+      ? 'border-blue-500 bg-white shadow-blue-500/20 dark:bg-slate-900'
+      : 'border-black/10 bg-white/70 dark:border-white/10 dark:bg-slate-900/70'
+      }`}>
+      {plan.popular && (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-4 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-blue-600/30">
+          Most Popular
+        </span>
+      )}
+
+      <h3 className="mb-2 text-2xl font-bold text-slate-900 dark:text-white">{plan.name}</h3>
+      <div className="mb-6">
+        <span className="text-4xl font-black text-slate-900 dark:text-white">{plan.price}</span>
+        <span className="text-slate-500 dark:text-slate-400">{plan.period}</span>
+      </div>
+
+      <ul className="mb-8 flex-1 space-y-3">
+        {plan.features.map((feature) => (
+          <li key={feature} className="flex items-start gap-2">
+            <span className="mt-0.5 text-blue-500" aria-hidden="true">✓</span>
+            <span className="text-slate-700 dark:text-slate-300">{feature}</span>
+          </li>
+        ))}
+      </ul>
+
+      <button
+        type="button"
+        onClick={onStart}
+        className={`w-full cursor-pointer rounded-lg px-4 py-3 font-semibold text-white transition-colors ${plan.popular
+          ? 'bg-blue-600 hover:bg-blue-500'
+          : 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700'
+          }`}
+      >
+        Get Started
+      </button>
+    </article>
+  )
+}
+
+function WhyUsCard({ item }) {
+  const Icon = item.icon
+
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white/70 p-6 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+        <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      </div>
+      <h3 className="mb-1.5 text-base font-bold text-slate-900 dark:text-white">{item.title}</h3>
+      <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{item.description}</p>
+    </article>
+  )
+}
+
+function SimpleTestimonials({ testimonials }) {
+  return (
+    <div className="overflow-hidden px-4 py-4 md:px-12">
+      <div className="testimonial-track flex w-max gap-6 hover:[animation-play-state:paused]">
+        {[...testimonials, ...testimonials].map((testimonial, index) => (
+          <article key={`${testimonial.name}-${index}`} className="w-[420px] max-w-[calc(100vw-2rem)] shrink-0 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-9 py-8 shadow-sm dark:border-slate-700/60 dark:from-slate-800/80 dark:to-slate-900/80">
+            <blockquote className="text-base leading-relaxed text-slate-700 dark:text-slate-200 md:text-lg">
+              “{testimonial.content}”
+            </blockquote>
+            <div className="mt-8">
+              <p className="font-semibold text-slate-900 dark:text-white">{testimonial.name}</p>
+              <p className="text-sm text-blue-600 dark:text-blue-300/80">{testimonial.role}, {testimonial.company}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const LandingPage = () => {
   const [openFaqIndex, setOpenFaqIndex] = useState(-1)
@@ -144,18 +295,18 @@ const LandingPage = () => {
 
           {/* Action CTA Buttons */}
           <div className="flex flex-wrap items-center gap-4 pt-4">
-            <Button
+            <button
               onClick={() => navigate('/auth/register')}
-              className="bg-blue-800 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm tracking-wider uppercase px-8 py-4 rounded-full shadow-2xl shadow-blue-800/40 hover:scale-105 transition-all"
+              className="cursor-pointer bg-blue-800 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm tracking-wider uppercase px-8 py-4 rounded-full shadow-2xl shadow-blue-800/40 hover:scale-105 transition-all"
             >
               GETTING STARTED
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={() => navigate('/auth/login')}
-              className="bg-white/70 hover:bg-white text-slate-900 border border-black/10 dark:bg-black/70 dark:hover:bg-black dark:text-white dark:border-white/30 font-extrabold text-xs sm:text-sm tracking-wider uppercase px-8 py-4 rounded-full backdrop-blur-md hover:scale-105 transition-all"
+              className="cursor-pointer bg-white/70 hover:bg-white text-slate-900 border border-black/10 dark:bg-black/70 dark:hover:bg-black dark:text-white dark:border-white/30 font-extrabold text-xs sm:text-sm tracking-wider uppercase px-8 py-4 rounded-full backdrop-blur-md hover:scale-105 transition-all"
             >
               REQUEST A DEMO
-            </Button>
+            </button>
           </div>
         </div>
       </section>
@@ -179,8 +330,8 @@ const LandingPage = () => {
           </p>
         </div>
 
-        <Carousel
-          items={[
+        <SimpleBenefitsCarousel>
+          {[
             {
               category: "SMART INVENTORY",
               title: "Never run out. Stock alerts fire before shelves go empty.",
@@ -380,10 +531,10 @@ const LandingPage = () => {
               ),
             },
           ].map((card, idx) => (
-            <AppleCard key={card.title} card={card} index={idx} />
+            <SimpleBenefitCard key={card.title} card={card} />
           ))}
-        />
-      </section>
+          </SimpleBenefitsCarousel>
+        </section>
 
       {/* Platform Preview Section — real screenshots of the actual product, not mockups */}
       <section id="platform-preview" className="py-24 px-4 sm:px-6 lg:px-8 bg-[#F0F4FB] dark:bg-[#0C1424] transition-colors">
@@ -424,31 +575,7 @@ const LandingPage = () => {
                 description: 'Every branch, every product, every employee — rolled up into one dashboard, so nothing needs a spreadsheet to explain it.',
               },
             ].map((item, idx) => (
-              <div
-                key={item.role}
-                className={`flex flex-col ${idx % 2 === 1 ? 'lg:flex-row-reverse' : 'lg:flex-row'} items-center gap-10 lg:gap-16`}
-              >
-                <div className="w-full lg:w-1/2 shrink-0 text-center lg:text-left">
-                  <span className="inline-block text-xs font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full mb-4">
-                    {item.role}
-                  </span>
-                  <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-3 leading-tight">
-                    {item.title}
-                  </h3>
-                  <p className="text-base text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto lg:mx-0">
-                    {item.description}
-                  </p>
-                </div>
-                <div className="w-full lg:w-1/2">
-                  <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-900/10 dark:shadow-black/40">
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-auto block"
-                    />
-                  </div>
-                </div>
-              </div>
+              <PlatformPreviewItem key={item.role} item={item} reverse={idx % 2 === 1} />
             ))}
           </div>
         </div>
@@ -474,54 +601,7 @@ const LandingPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {pricingPlans.map((plan) => (
-              <CometCard key={plan.name}>
-                <div className="relative h-full rounded-2xl border border-black/10 dark:border-white/10 p-2">
-                  <GlowingEffect
-                    spread={40}
-                    glow={true}
-                    disabled={false}
-                    proximity={64}
-                    inactiveZone={0.01}
-                    borderWidth={2}
-                  />
-                  <div
-                    className={`relative flex h-full flex-col rounded-xl p-8 ${plan.popular ? 'bg-white dark:bg-slate-900' : 'bg-white/70 dark:bg-slate-900/70'
-                      }`}
-                  >
-                    {plan.popular && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg shadow-blue-600/30">
-                        Most Popular
-                      </span>
-                    )}
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-                      {plan.name}
-                    </h3>
-                    <div className="mb-6">
-                      <span className="text-4xl font-black text-slate-900 dark:text-white">
-                        {plan.price}
-                      </span>
-                      <span className="text-slate-500 dark:text-slate-400">{plan.period}</span>
-                    </div>
-                    <ul className="space-y-3 mb-8 flex-1">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <CheckCircle2 className="h-5 w-5 text-blue-500 dark:text-blue-400 shrink-0 mt-0.5" />
-                          <span className="text-slate-700 dark:text-slate-300">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      className={`w-full ${plan.popular
-                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30'
-                        : 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-white'
-                        }`}
-                      onClick={() => navigate('/auth/register')}
-                    >
-                      Get Started
-                    </Button>
-                  </div>
-                </div>
-              </CometCard>
+              <SimplePricingCard key={plan.name} plan={plan} onStart={() => navigate('/auth/register')} />
             ))}
           </div>
         </div>
@@ -567,22 +647,7 @@ const LandingPage = () => {
                 title: 'Real Human Support',
                 description: "Talk to a person, not a ticket queue, whenever something breaks.",
               },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] p-6"
-              >
-                <div className="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-4">
-                  <item.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
-                  {item.title}
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
-            ))}
+            ].map((item) => <WhyUsCard key={item.title} item={item} />)}
           </div>
         </div>
       </section>
@@ -600,17 +665,7 @@ const LandingPage = () => {
           </div>
         </div>
 
-        <div className="flex justify-center">
-          <InfiniteMovingCards
-            items={testimonials.map((t) => ({
-              quote: t.content,
-              name: t.name,
-              title: `${t.role}, ${t.company}`,
-            }))}
-            direction="right"
-            speed="slow"
-          />
-        </div>
+        <SimpleTestimonials testimonials={testimonials} />
       </section>
 
       {/* FAQ Section */}
@@ -686,25 +741,18 @@ const LandingPage = () => {
             Join thousands of retail stores and supermarkets using Bilix to streamline operations
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="bg-white text-blue-700 hover:bg-blue-50 font-extrabold text-lg px-8 py-6 rounded-full shadow-xl hover:scale-105 transition-all"
-              asChild
+            <Link
+              to="/auth/register"
+              className="bg-white text-blue-700 hover:bg-blue-50 font-extrabold text-base px-6 py-3.5 rounded-full shadow-xl hover:scale-105 transition-all"
             >
-              <Link to="/auth/register">
-                Start Free Trial
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-2 border-white bg-transparent text-white hover:bg-white hover:text-blue-700 font-extrabold text-lg px-8 py-6 rounded-full"
-              asChild
+              Start Free Trial
+            </Link>
+            <a
+              href="#contact"
+              className="border-2 border-white bg-transparent text-white hover:bg-white hover:text-blue-700 font-extrabold text-base px-6 py-3.5 rounded-full"
             >
-              <a href="#contact">
-                Contact Sales
-              </a>
-            </Button>
+              Contact Sales
+            </a>
           </div>
         </div>
       </section>

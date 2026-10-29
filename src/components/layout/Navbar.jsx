@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
 import { Menu, X, Sun, Moon } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -69,22 +68,22 @@ const Navbar = () => {
           >
             {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
-          <Button
+          <button
             variant="ghost"
             onClick={() => navigate('/auth/login')}
-            className="hidden sm:flex font-semibold text-slate-800 dark:text-white hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-full px-5 text-sm"
+            className="hidden sm:flex cursor-pointer font-semibold text-slate-800 dark:text-white hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-full px-5 text-sm"
           >
             Sign In
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={() => navigate('/auth/register')}
-            className="bg-blue-800 hover:bg-blue-700 text-white rounded-full font-bold text-xs sm:text-sm tracking-wider uppercase px-6 py-2.5 shadow-xl shadow-blue-800/30 hover:scale-105 transition-all"
+            className="cursor-pointer bg-blue-800 hover:bg-blue-700 text-white rounded-full font-bold text-xs sm:text-sm tracking-wider uppercase px-6 py-2.5 shadow-xl shadow-blue-800/30 hover:scale-105 transition-all"
           >
             GET FREE DEMO
-          </Button>
+          </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-slate-800 dark:text-white"
+            className="md:hidden cursor-pointer p-2 text-slate-800 dark:text-white"
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -116,19 +115,19 @@ const Navbar = () => {
               {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
             <div className="flex flex-1 gap-2">
-              <Button
+              <button
                 variant="outline"
                 onClick={() => { setMobileMenuOpen(false); navigate('/auth/login'); }}
                 className="flex-1 rounded-full border-black/15 dark:border-white/20 text-slate-800 dark:text-white hover:bg-black/5 dark:hover:bg-white/10"
               >
                 Sign In
-              </Button>
-              <Button
+              </button>
+              <button
                 onClick={() => { setMobileMenuOpen(false); navigate('/auth/register'); }}
                 className="flex-1 bg-blue-800 hover:bg-blue-700 text-white rounded-full"
               >
                 GET FREE DEMO
-              </Button>
+              </button>
             </div>
           </div>
         </div>

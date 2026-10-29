@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { loginUser, clearError } from '@/store/slices/authSlice'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { shiftReportAPI } from '@/services/api'
@@ -107,14 +104,14 @@ const Login = () => {
           </span>
         </div>
 
-      <Card className="w-full">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">Login</CardTitle>
-          <CardDescription>
+      <div className="w-full rounded-xl border bg-card text-card-foreground shadow-sm">
+        <div className="space-y-1 p-6 text-center">
+          <h1 className="text-3xl font-bold">Login</h1>
+          <p className="text-sm text-muted-foreground">
             Enter your credentials to access your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </p>
+        </div>
+        <div className="p-6 pt-0">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
@@ -128,14 +125,14 @@ const Login = () => {
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input
+                <input
                   id="email"
                   name="email"
                   type="email"
                   placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="pl-10"
+                  className="w-full rounded-md border bg-background px-3 py-2 pl-10"
                   required
                 />
               </div>
@@ -147,14 +144,14 @@ const Login = () => {
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input
+                <input
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="pl-10 pr-10"
+                  className="w-full rounded-md border bg-background px-3 py-2 pl-10 pr-10"
                   required
                 />
                 <button
@@ -167,14 +164,13 @@ const Login = () => {
               </div>
             </div>
 
-            <Button
+            <button
               type="submit"
-              className="w-full"
-              size="lg"
               disabled={loading}
+              className="w-full rounded-md bg-primary px-4 py-2 text-primary-foreground"
             >
               {loading ? 'Logging in...' : 'Login'}
-            </Button>
+            </button>
 
             <div className="text-center text-sm">
               <span className="text-muted-foreground">Don't have an account? </span>
@@ -183,12 +179,11 @@ const Login = () => {
               </Link>
             </div>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
       </div>
     </div>
   )
 }
 
 export default Login
-

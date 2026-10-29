@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { RefreshCw, Check, X, Clock, Store, Mail, Phone, MapPin } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { storeAPI } from '@/services/api'
 import { useConfirm } from '@/contexts/ConfirmContext'
+
+const Card = ({ children, className = '' }) => <div className={`rounded-xl border bg-white dark:bg-slate-900 ${className}`}>{children}</div>
+const CardHeader = ({ children }) => <div className="p-6 pb-3">{children}</div>
+const CardContent = ({ children, className = '' }) => <div className={`p-6 ${className}`}>{children}</div>
+const CardTitle = ({ children }) => <h2 className="text-lg font-bold">{children}</h2>
+const Button = ({ children, className = '', ...props }) => <button {...props} className={`cursor-pointer rounded-md px-3 py-2 ${className}`}>{children}</button>
+const Table = ({ children }) => <table className="w-full text-sm">{children}</table>
+const TableHeader = ({ children }) => <thead>{children}</thead>
+const TableBody = ({ children }) => <tbody>{children}</tbody>
+const TableRow = ({ children }) => <tr className="border-b border-slate-100 dark:border-white/10">{children}</tr>
+const TableHead = ({ children, className = '' }) => <th className={`p-3 text-left text-slate-500 ${className}`}>{children}</th>
+const TableCell = ({ children, className = '' }) => <td className={`p-3 ${className}`}>{children}</td>
 
 const PendingRequestsPage = () => {
   const confirm = useConfirm()
@@ -180,4 +189,3 @@ const PendingRequestsPage = () => {
 }
 
 export default PendingRequestsPage
-

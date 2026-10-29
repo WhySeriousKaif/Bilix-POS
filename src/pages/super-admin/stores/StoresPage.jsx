@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Search, RefreshCw, Check, X, Eye, Store, MapPin, Phone, Mail, Hash, Calendar, Tag, FileText } from 'lucide-react'
+import { Search, RefreshCw, Check, X, Eye, Store, Users, MapPin, Phone, Mail, Hash, Calendar, Tag, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { storeAPI } from '@/services/api'
+
+// Small local primitives keep this page easy to understand and remove the need
+// for a separate UI component library.
+const Card = ({ className = '', children }) => <div className={`rounded-xl border bg-white dark:bg-slate-900 ${className}`}>{children}</div>
+const CardHeader = ({ children }) => <div className="p-6 pb-3">{children}</div>
+const CardContent = ({ className = '', children }) => <div className={`p-6 ${className}`}>{children}</div>
+const CardTitle = ({ children }) => <h2 className="text-lg font-bold">{children}</h2>
+const Input = (props) => <input {...props} />
+const Button = ({ children, className = '', ...props }) => <button {...props} className={`rounded-md px-3 py-2 cursor-pointer ${className}`}>{children}</button>
+const Table = ({ children }) => <table className="w-full text-sm">{children}</table>
+const TableHeader = ({ children }) => <thead>{children}</thead>
+const TableBody = ({ children }) => <tbody>{children}</tbody>
+const TableRow = ({ children }) => <tr className="border-b border-slate-100 dark:border-white/10">{children}</tr>
+const TableHead = ({ children, className = '' }) => <th className={`p-3 text-left text-slate-500 ${className}`}>{children}</th>
+const TableCell = ({ children, className = '' }) => <td className={`p-3 ${className}`}>{children}</td>
+const Dialog = ({ open, onOpenChange, children }) => open ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => onOpenChange(false)}>{children}</div> : null
+const DialogContent = ({ children, className = '' }) => <div className={`relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-slate-900 ${className}`} onClick={(event) => event.stopPropagation()}>{children}</div>
+const DialogHeader = ({ children }) => <div>{children}</div>
+const DialogTitle = ({ children, className = '' }) => <h2 className={className}>{children}</h2>
 
 const StoresPage = () => {
   const [stores, setStores] = useState([])
@@ -89,7 +103,7 @@ const StoresPage = () => {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">Stores</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">Manage all stores in the system</p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchStores}>
+        <Button onClick={fetchStores} className="inline-flex items-center border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/15 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-white/10">
           <RefreshCw className="size-4 mr-2" />
           Refresh
         </Button>
@@ -105,7 +119,7 @@ const StoresPage = () => {
               placeholder="Search stores..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pl-10 text-slate-900 placeholder:text-slate-400 dark:border-white/15 dark:bg-[#111c35] dark:text-white"
             />
           </div>
         </CardContent>
@@ -261,10 +275,18 @@ const StoresPage = () => {
 
       {/* Store Details Dialog */}
       <Dialog open={!!selectedStore} onOpenChange={(open) => !open && setSelectedStore(null)}>
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+        <DialogContent className="p-0">
           {selectedStore && (
             <>
-              <div className="bg-gradient-to-br from-blue-600 to-blue-800 px-6 py-6 text-white">
+              <div className="bg-gradient-to-br from-blue-600 to-blue-800 px-6 py-5 text-white">
+                <button
+                  type="button"
+                  aria-label="Close store details"
+                  onClick={() => setSelectedStore(null)}
+                  className="absolute right-4 top-4 rounded-full bg-white/15 px-2 py-1 text-lg leading-none text-white hover:bg-white/25"
+                >
+                  ×
+                </button>
                 <DialogHeader>
                   <div className="flex items-start gap-4">
                     <div className="h-14 w-14 shrink-0 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center ring-1 ring-white/20">
@@ -296,61 +318,37 @@ const StoresPage = () => {
                 </DialogHeader>
               </div>
 
-              <div className="px-6 py-5 space-y-5">
-                {selectedStore.description && (
-                  <div className="flex items-start gap-3">
-                    <FileText className="size-4 text-blue-500 mt-0.5 shrink-0" />
-                    <p className="text-sm text-slate-600 dark:text-slate-300">{selectedStore.description}</p>
-                  </div>
-                )}
+              <div className="space-y-6 px-6 py-6">
+                <section>
+                  <div className="mb-2 flex items-center gap-3"><FileText className="size-5 text-blue-500" /><h3 className="text-base font-semibold text-slate-900 dark:text-white">Overview</h3></div>
+                  <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{selectedStore.description || 'No description available.'}</p>
+                </section>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
-                      <Tag className="size-3.5" /> Type
-                    </div>
-                    <div className="text-sm font-medium text-slate-900 dark:text-white">
-                      {selectedStore.storeType || 'N/A'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
-                      <Calendar className="size-3.5" /> Created
-                    </div>
-                    <div className="text-sm font-medium text-slate-900 dark:text-white">
-                      {selectedStore.createdAt ? format(new Date(selectedStore.createdAt), 'MMM d, yyyy') : 'N/A'}
-                    </div>
-                  </div>
+                <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-5 dark:border-white/10">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"><div className="mb-2 flex items-center gap-2 text-xs text-slate-400"><Tag className="size-4" />Type</div><div className="text-sm font-semibold text-slate-900 dark:text-white">{selectedStore.storeType || 'N/A'}</div></div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"><div className="mb-2 flex items-center gap-2 text-xs text-slate-400"><Calendar className="size-4" />Created</div><div className="text-sm font-semibold text-slate-900 dark:text-white">{selectedStore.createdAt ? format(new Date(selectedStore.createdAt), 'MMM d, yyyy') : 'N/A'}</div></div>
                 </div>
 
-                <div className="border-t border-slate-100 dark:border-white/10 pt-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
-                    Contact
-                  </div>
-                  <div className="space-y-2.5">
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center shrink-0">
+                <div className="border-t border-slate-100 pt-4 dark:border-white/10 sm:col-span-2">
+                  <div className="mb-3 flex items-center gap-3"><div className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10"><Users className="size-5 text-blue-500" /></div><h3 className="text-base font-semibold text-slate-900 dark:text-white">Contact Information</h3></div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
                         <Mail className="size-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <span className="text-slate-700 dark:text-slate-200 truncate">
-                        {selectedStore.contact?.email || 'N/A'}
-                      </span>
+                      <div className="min-w-0"><div className="text-xs text-slate-400">Email</div><div className="truncate text-sm text-slate-700 dark:text-slate-200">{selectedStore.contact?.email || 'N/A'}</div></div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
                         <Phone className="size-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <span className="text-slate-700 dark:text-slate-200">
-                        {selectedStore.contact?.phone || 'N/A'}
-                      </span>
+                      <div><div className="text-xs text-slate-400">Phone</div><div className="text-sm text-slate-700 dark:text-slate-200">{selectedStore.contact?.phone || 'N/A'}</div></div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/5">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
                         <MapPin className="size-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <span className="text-slate-700 dark:text-slate-200">
-                        {selectedStore.contact?.address || 'N/A'}
-                      </span>
+                      <div className="min-w-0"><div className="text-xs text-slate-400">Address</div><div className="text-sm text-slate-700 dark:text-slate-200">{selectedStore.contact?.address || 'N/A'}</div></div>
                     </div>
                   </div>
                 </div>
@@ -364,4 +362,3 @@ const StoresPage = () => {
 }
 
 export default StoresPage
-

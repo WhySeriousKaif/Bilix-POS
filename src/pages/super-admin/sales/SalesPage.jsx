@@ -1,15 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   DollarSign,
   ShoppingCart,
@@ -38,6 +27,19 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+
+const Card = ({ className = '', children }) => <div className={`rounded-xl border bg-white dark:bg-slate-900 ${className}`}>{children}</div>
+const CardHeader = ({ children }) => <div className="p-4 pb-2">{children}</div>
+const CardContent = ({ className = '', children }) => <div className={`p-4 ${className}`}>{children}</div>
+const CardTitle = ({ children }) => <h2 className="text-lg font-bold">{children}</h2>
+const Input = ({ className = '', ...props }) => <input {...props} className={`rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 dark:border-white/15 dark:bg-[#111c35] dark:text-white ${className}`} />
+const Button = ({ children, className = '', ...props }) => <button {...props} className={`inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 cursor-pointer dark:border-white/15 dark:bg-slate-900 ${className}`}>{children}</button>
+const Table = ({ children }) => <table className="w-full text-sm">{children}</table>
+const TableHeader = ({ children }) => <thead>{children}</thead>
+const TableBody = ({ children }) => <tbody>{children}</tbody>
+const TableRow = ({ children }) => <tr className="border-b border-slate-100 dark:border-white/10">{children}</tr>
+const TableHead = ({ children, className = '' }) => <th className={`p-3 text-left text-slate-500 ${className}`}>{children}</th>
+const TableCell = ({ children, className = '' }) => <td className={`p-3 ${className}`}>{children}</td>
 
 const SuperAdminSalesPage = () => {
   const [loading, setLoading] = useState(true)
@@ -386,7 +388,7 @@ const SuperAdminSalesPage = () => {
   }
 
   return (
-    <div className="h-full overflow-auto p-4 sm:p-6">
+    <div className="h-full overflow-auto p-4 sm:p-5">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">System-Wide Sales</h1>
@@ -399,58 +401,58 @@ const SuperAdminSalesPage = () => {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(stats.totalSales)}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                <DollarSign className="size-6 text-green-600" />
+              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                <DollarSign className="size-5 text-green-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Orders Today</p>
                 <p className="text-2xl font-bold mt-1">{stats.ordersToday}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                <ShoppingCart className="size-6 text-blue-600" />
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <ShoppingCart className="size-5 text-blue-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Refunds</p>
                 <p className="text-2xl font-bold mt-1">{stats.totalRefunds}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-                <TrendingUp className="size-6 text-red-600" />
+              <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                <TrendingUp className="size-5 text-red-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Net Sales</p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(stats.netSales)}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
-                <TrendingUp className="size-6 text-purple-600" />
+              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <TrendingUp className="size-5 text-purple-600" />
               </div>
             </div>
           </CardContent>
@@ -458,13 +460,13 @@ const SuperAdminSalesPage = () => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <Card>
           <CardHeader>
             <CardTitle>Daily Sales (Last 7 Days)</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={240}>
               <LineChart data={salesData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
@@ -488,7 +490,7 @@ const SuperAdminSalesPage = () => {
             <CardTitle>Payment Methods Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={paymentData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
@@ -509,7 +511,7 @@ const SuperAdminSalesPage = () => {
             <CardTitle>Top Stores by Sales</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={240}>
               <BarChart data={storeSalesData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
@@ -565,8 +567,8 @@ const SuperAdminSalesPage = () => {
                           <TableCell className="text-right">{formatCurrency(branch.sales)}</TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="bg-muted/40 font-semibold">
-                        <TableCell colSpan={3} className="text-right">
+                      <TableRow className="bg-slate-50 font-semibold dark:bg-white/5">
+                        <TableCell colSpan={3} className="text-right text-slate-600 dark:text-slate-300">
                           Total for {admin.storeAdminName}
                         </TableCell>
                         <TableCell>{admin.totalOrders}</TableCell>
@@ -597,31 +599,13 @@ const SuperAdminSalesPage = () => {
                   className="pl-10"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[140px]">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  <SelectItem value="REFUNDED">Refunded</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={storeFilter} onValueChange={setStoreFilter}>
-                <SelectTrigger className="w-full sm:w-[140px]">
-                  <SelectValue placeholder="All Stores" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Stores</SelectItem>
-                  {stores.map(store => (
-                    <SelectItem key={store.id} value={store.id.toString()}>
-                      {store.brand || store.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full rounded-md border bg-white px-3 py-2 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-[140px]">
+                <option value="all">All Status</option><option value="PENDING">Pending</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option><option value="REFUNDED">Refunded</option>
+              </select>
+              <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="w-full rounded-md border bg-white px-3 py-2 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-[140px]">
+                <option value="all">All Stores</option>
+                {stores.map((store) => <option key={store.id} value={store.id.toString()}>{store.brand || store.name}</option>)}
+              </select>
             </div>
           </div>
         </CardHeader>
@@ -684,4 +668,3 @@ const SuperAdminSalesPage = () => {
 }
 
 export default SuperAdminSalesPage
-

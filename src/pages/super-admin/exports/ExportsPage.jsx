@@ -1,19 +1,16 @@
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import { Download, FileText, Database, Users, Store, ShoppingCart } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { storeAPI, userAPI, orderAPI, branchAPI } from '@/services/api'
+
+const Card = ({ children, className = '' }) => <div className={`rounded-xl border bg-white dark:bg-slate-900 ${className}`}>{children}</div>
+const CardHeader = ({ children }) => <div className="p-6 pb-3">{children}</div>
+const CardContent = ({ children, className = '' }) => <div className={`p-6 ${className}`}>{children}</div>
+const CardTitle = ({ children }) => <h2 className="text-lg font-bold">{children}</h2>
+const Label = ({ children }) => <label className="text-sm font-medium">{children}</label>
+const Input = (props) => <input {...props} />
+const Button = ({ children, className = '', ...props }) => <button {...props} className={`cursor-pointer rounded-md px-3 py-2 ${className}`}>{children}</button>
 
 // Returns [start, end) for the selected date range, or null for "all time" / invalid custom range
 const resolveDateRange = (dateRange, startDate, endDate) => {
@@ -200,41 +197,16 @@ const ExportsPage = () => {
           <CardContent className="space-y-4">
             <div>
               <Label>Export Type</Label>
-              <Select value={exportType} onValueChange={setExportType}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {exportTypes.map((type) => {
-                    const Icon = type.icon
-                    return (
-                      <SelectItem key={type.value} value={type.value}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="size-4" />
-                          <span>{type.label}</span>
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              <select value={exportType} onChange={(e) => setExportType(e.target.value)} className="mt-1 w-full rounded-md border bg-white p-2 dark:border-white/10 dark:bg-slate-800">
+                {exportTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+              </select>
             </div>
 
             <div>
               <Label>Date Range</Label>
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">Last 7 Days</SelectItem>
-                  <SelectItem value="month">Last 30 Days</SelectItem>
-                  <SelectItem value="year">Last Year</SelectItem>
-                  <SelectItem value="custom">Custom Range</SelectItem>
-                </SelectContent>
-              </Select>
+              <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="mt-1 w-full rounded-md border bg-white p-2 dark:border-white/10 dark:bg-slate-800">
+                <option value="all">All Time</option><option value="today">Today</option><option value="week">Last 7 Days</option><option value="month">Last 30 Days</option><option value="year">Last Year</option><option value="custom">Custom Range</option>
+              </select>
             </div>
 
             {dateRange === 'custom' && (
@@ -262,15 +234,7 @@ const ExportsPage = () => {
 
             <div>
               <Label>Export Format</Label>
-              <Select value={formatType} onValueChange={setFormatType}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="csv">CSV</SelectItem>
-                  <SelectItem value="json">JSON</SelectItem>
-                </SelectContent>
-              </Select>
+              <select value={formatType} onChange={(e) => setFormatType(e.target.value)} className="mt-1 w-full rounded-md border bg-white p-2 dark:border-white/10 dark:bg-slate-800"><option value="csv">CSV</option><option value="json">JSON</option></select>
             </div>
 
             <Button
@@ -328,4 +292,3 @@ const ExportsPage = () => {
 }
 
 export default ExportsPage
-

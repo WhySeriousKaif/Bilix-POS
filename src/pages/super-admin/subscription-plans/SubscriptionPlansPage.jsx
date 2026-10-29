@@ -1,20 +1,36 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Plus, Edit, Trash2, RefreshCw, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { subscriptionPlanAPI } from '@/services/api'
 import { useConfirm } from '@/contexts/ConfirmContext'
+
+const Card = ({ className = '', children }) => <div className={`rounded-xl border bg-white dark:bg-slate-900 ${className}`}>{children}</div>
+const CardHeader = ({ children }) => <div className="p-6 pb-3">{children}</div>
+const CardContent = ({ className = '', children }) => <div className={`p-6 ${className}`}>{children}</div>
+const CardTitle = ({ children }) => <h2 className="text-lg font-bold">{children}</h2>
+const Input = ({ className = '', ...props }) => <input {...props} className={`mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-500 dark:border-white/15 dark:bg-slate-950 dark:text-white ${className}`} />
+const Label = ({ children, ...props }) => <label {...props} className="block text-sm font-medium text-slate-700 dark:text-slate-200">{children}</label>
+const Button = ({ children, className = '', variant = 'default', size = 'default', ...props }) => {
+  const variants = {
+    default: 'bg-blue-600 text-white hover:bg-blue-700',
+    outline: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/15 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-white/10',
+    destructive: 'bg-red-600 text-white hover:bg-red-700',
+    ghost: 'bg-transparent hover:bg-slate-100 dark:hover:bg-white/10',
+  }
+  const sizes = { default: 'px-4 py-2', sm: 'px-3 py-1.5', lg: 'px-5 py-2.5' }
+  return <button {...props} className={`inline-flex items-center justify-center rounded-md font-medium transition-colors cursor-pointer ${sizes[size] || sizes.default} ${variants[variant] || variants.default} ${className}`}>{children}</button>
+}
+const Table = ({ children }) => <table className="w-full text-sm">{children}</table>
+const TableHeader = ({ children }) => <thead>{children}</thead>
+const TableBody = ({ children }) => <tbody>{children}</tbody>
+const TableRow = ({ children }) => <tr className="border-b border-slate-100 dark:border-white/10">{children}</tr>
+const TableHead = ({ children, className = '' }) => <th className={`p-3 text-left text-slate-500 ${className}`}>{children}</th>
+const TableCell = ({ children, className = '' }) => <td className={`p-3 ${className}`}>{children}</td>
+const Dialog = ({ open, onOpenChange, children }) => open ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => onOpenChange(false)}>{children}</div> : null
+const DialogContent = ({ children, className = '' }) => <div className={`max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900 ${className}`} onClick={(event) => event.stopPropagation()}>{children}</div>
+const DialogHeader = ({ children }) => <div className="mb-4">{children}</div>
+const DialogTitle = ({ children }) => <h2 className="text-xl font-bold">{children}</h2>
+const DialogDescription = ({ children }) => <p className="text-sm text-slate-500">{children}</p>
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('en-IN', {
@@ -222,8 +238,8 @@ const SubscriptionPlansPage = () => {
                       Edit
                     </Button>
                     <Button
-                      variant="destructive"
                       size="sm"
+                      variant="destructive"
                       onClick={() => handleDeletePlan(plan.id)}
                     >
                       <Trash2 className="size-4" />
@@ -277,18 +293,18 @@ const SubscriptionPlansPage = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0"
+                              className="h-9 w-9 p-0"
                               onClick={() => handleEdit(plan)}
                             >
-                              <Edit className="size-4" />
+                              <Edit className="size-5" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              className="h-9 w-9 p-0 text-destructive hover:text-destructive"
                               onClick={() => handleDeletePlan(plan.id)}
                             >
-                              <Trash2 className="size-4" />
+                              <Trash2 className="size-5" />
                             </Button>
                           </div>
                         </TableCell>

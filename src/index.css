@@ -138,3 +138,13 @@
 .font-mono-code {
   font-family: 'JetBrains Mono', 'Monaco', 'Fira Code', monospace !important;
 }
+
+/* The cards are duplicated in React, so the track can loop seamlessly. */
+@keyframes testimonial-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - 0.75rem)); }
+}
+
+.testimonial-track {
+  animation: testimonial-scroll 55s linear infinite;
+}

@@ -1,9 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Settings,
   Save,
@@ -17,6 +12,15 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { userAPI, settingsAPI } from '@/services/api'
+
+const Card = ({ children, className = '' }) => <div className={`rounded-xl border bg-white dark:bg-slate-900 ${className}`}>{children}</div>
+const CardHeader = ({ children }) => <div className="p-6 pb-3">{children}</div>
+const CardContent = ({ children, className = '' }) => <div className={`p-6 ${className}`}>{children}</div>
+const CardTitle = ({ children, className = '' }) => <h2 className={`text-lg font-bold ${className}`}>{children}</h2>
+const Input = (props) => <input {...props} />
+const Textarea = (props) => <textarea {...props} />
+const Label = ({ children, htmlFor }) => <label htmlFor={htmlFor} className="text-sm font-medium">{children}</label>
+const Button = ({ children, className = '', ...props }) => <button {...props} className={`cursor-pointer rounded-md px-3 py-2 ${className}`}>{children}</button>
 
 const SuperAdminSettingsPage = () => {
   const [loading, setLoading] = useState(true)
@@ -284,4 +288,3 @@ const SuperAdminSettingsPage = () => {
 }
 
 export default SuperAdminSettingsPage
-

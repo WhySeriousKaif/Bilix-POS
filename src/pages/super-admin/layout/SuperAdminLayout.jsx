@@ -1,7 +1,4 @@
 import React, { useState, useRef, useMemo } from 'react'
-import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import {
   LayoutDashboard,
   Store,
@@ -88,6 +85,7 @@ const SuperAdminLayout = ({ children }) => {
   const [allUsers, setAllUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const searchBoxRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -184,6 +182,10 @@ const SuperAdminLayout = ({ children }) => {
   }
 
   const handleLogout = () => {
+    setLogoutConfirmOpen(true)
+  }
+
+  const confirmLogout = () => {
     dispatch(logoutUser())
     navigate('/auth/login')
   }
@@ -210,14 +212,12 @@ const SuperAdminLayout = ({ children }) => {
       {/* Header */}
       <header className="h-16 shrink-0 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 flex items-center justify-between px-4 sm:px-6 z-10 gap-4">
         <div className="flex items-center gap-2 min-w-0">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             className="lg:hidden shrink-0"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="size-5" />
-          </Button>
+          </button>
           <HeaderBrand />
         </div>
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
@@ -313,9 +313,8 @@ const SuperAdminLayout = ({ children }) => {
           >
             {darkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
           </button>
-          <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-            <PopoverTrigger asChild>
-              <button className="relative p-2.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer">
+          <div className="relative">
+              <button onClick={() => setNotificationsOpen((open) => !open)} className="relative p-2.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer">
                 <Bell className="size-5" />
                 {notifications.length > 0 && (
                   <span className="absolute top-1.5 right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
@@ -323,8 +322,7 @@ const SuperAdminLayout = ({ children }) => {
                   </span>
                 )}
               </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
+            {notificationsOpen && <div className="absolute right-0 top-full mt-2 z-30 w-80 rounded-xl border bg-white dark:bg-slate-900 shadow-lg border-slate-200 dark:border-white/10">
               <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 font-semibold text-sm text-slate-900 dark:text-white">
                 Notifications
               </div>
@@ -351,8 +349,8 @@ const SuperAdminLayout = ({ children }) => {
                   ))}
                 </div>
               )}
-            </PopoverContent>
-          </Popover>
+            </div>}
+          </div>
           <div className="flex items-center gap-2.5 pl-2 ml-1 border-l border-slate-200 dark:border-white/10">
             <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
               {initial}
@@ -402,15 +400,10 @@ const SuperAdminLayout = ({ children }) => {
         </aside>
 
         {/* Mobile Sidebar */}
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" className="w-64 p-0 flex flex-col">
-            <SheetHeader className="p-4 border-b border-slate-200 dark:border-white/10">
-              <SheetTitle asChild>
-                <div>
-                  <HeaderBrand />
-                </div>
-              </SheetTitle>
-            </SheetHeader>
+        {sidebarOpen && <div className="fixed inset-0 z-40 lg:hidden">
+          <button aria-label="Close menu" className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <aside className="relative h-full w-64 bg-white dark:bg-slate-900 flex flex-col shadow-xl">
+            <div className="p-4 border-b border-slate-200 dark:border-white/10"><HeaderBrand /></div>
             <NavItems menuItems={menuItems} isActive={isActive} onNavigate={handleNavigate} />
             <div className="p-3 border-t border-slate-200 dark:border-white/10">
               <button
@@ -421,12 +414,27 @@ const SuperAdminLayout = ({ children }) => {
                 Log Out
               </button>
             </div>
-          </SheetContent>
-        </Sheet>
+          </aside>
+        </div>}
 
         {/* Main Content */}
         <main className="flex-1 overflow-auto bg-[#F8FAFE] dark:bg-[#0B1220]">{children}</main>
       </div>
+
+      {logoutConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onClick={() => setLogoutConfirmOpen(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Log out?</h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Are you sure you want to leave the Super Admin panel?</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setLogoutConfirmOpen(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10">Cancel</button>
+              <button onClick={confirmLogout} className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Log out</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
