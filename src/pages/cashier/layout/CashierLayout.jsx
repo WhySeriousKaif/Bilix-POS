@@ -23,6 +23,7 @@ import { useDispatch } from 'react-redux'
 import { logoutUser } from '@/store/slices/authSlice'
 import { userAPI, branchAPI } from '@/services/api'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import babyImage from '@/assets/newborn-5036843_1920.jpg'
 
 const menuItems = [
@@ -83,6 +84,7 @@ const CashierLayout = ({ children }) => {
   const location = useLocation()
   const dispatch = useDispatch()
   const { darkMode, toggleTheme } = useTheme()
+  const confirm = useConfirm()
 
   React.useEffect(() => {
     fetchUserInfo()
@@ -136,7 +138,14 @@ const CashierLayout = ({ children }) => {
     setSidebarOpen(false)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const shouldLogout = await confirm({
+      title: 'End shift and log out?',
+      description: 'Your cashier session will be closed and you will return to the login page.',
+      confirmLabel: 'End Shift & Logout',
+      variant: 'destructive',
+    })
+    if (!shouldLogout) return
     dispatch(logoutUser())
     navigate('/auth/login')
   }

@@ -9,12 +9,14 @@ import RecentOrders from "./RecentOrders";
 import RefundsTable from "./RefundsTable";
 import { shiftReportAPI } from "@/services/api";
 import { exportShiftSummaryReportPDF } from "@/utils/reportPdfGenerator";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 const ShiftSummery = () => {
   const { user } = useSelector((state) => state.auth);
   const [shiftData, setShiftData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (user?.id) {
@@ -32,24 +34,9 @@ const ShiftSummery = () => {
     } catch (err) {
       console.error('Error fetching shift data:', err);
       setError(err.message);
-      // Set mock data for testing if API fails
-      setShiftData({
-        cashier: { fullName: 'vinod' },
-        shiftStart: '2025-08-08T09:34:00',
-        shiftEnd: null,
-        totalOrders: 1,
-        totalSales: 599.00,
-        totalRefunds: 599.00,
-        netSale: 0.00,
-        paymentSummaries: [
-          { type: 'CARD', totalAmount: 599.00, transactionCount: 1, percentage: 100.0 }
-        ],
-        topSellingProducts: [
-          { id: 1, name: 'Men Geometric Print Polo Neck Pure Cotton Black T-Shirt', sellingPrice: 599.00, quantity: 1 }
-        ],
-        recentOrders: [],
-        refunds: []
-      });
+      // Never replace failed API data with mock financial totals.
+      // A fake zero refund/sales value is misleading in a cashier report.
+      setShiftData(null);
     } finally {
       setLoading(false);
     }
@@ -64,6 +51,13 @@ const ShiftSummery = () => {
   };
 
   const handleEndShift = async () => {
+    const shouldEnd = await confirm({
+      title: 'End shift and log out?',
+      description: 'Are you sure you want to end this cashier shift and log out?',
+      confirmLabel: 'End Shift & Logout',
+      variant: 'destructive',
+    });
+    if (!shouldEnd) return;
     try {
       if (shiftData?.id) {
         await shiftReportAPI.endShift(shiftData.id);

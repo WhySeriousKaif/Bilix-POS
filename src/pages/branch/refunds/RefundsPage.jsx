@@ -39,7 +39,6 @@ import {
 } from 'lucide-react'
 import { refundAPI, orderAPI, userAPI } from '@/services/api'
 import { format } from 'date-fns'
-import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 const RefundsPage = () => {
@@ -51,6 +50,8 @@ const RefundsPage = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [branchId, setBranchId] = useState(null)
+  const [page, setPage] = useState(0)
+  const pageSize = 10
 
   const [newRefund, setNewRefund] = useState({
     orderId: '',
@@ -72,6 +73,10 @@ const RefundsPage = () => {
   useEffect(() => {
     filterRefunds()
   }, [searchQuery, refunds])
+
+  useEffect(() => {
+    setPage(0)
+  }, [searchQuery])
 
   const fetchBranchId = async () => {
     try {
@@ -175,6 +180,8 @@ const RefundsPage = () => {
   }
 
   const totalRefundAmount = refunds.reduce((sum, r) => sum + (r.amount || 0), 0)
+  const totalPages = Math.max(1, Math.ceil(filteredRefunds.length / pageSize))
+  const visibleRefunds = filteredRefunds.slice(page * pageSize, (page + 1) * pageSize)
 
   return (
     <div className="space-y-6">
@@ -280,7 +287,7 @@ const RefundsPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredRefunds.map((refund) => (
+                  {visibleRefunds.map((refund) => (
                     <TableRow key={refund.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                       <TableCell className="font-bold text-xs text-rose-600 dark:text-rose-400">#{refund.id}</TableCell>
                       <TableCell className="font-bold text-xs text-blue-600 dark:text-blue-400">#{refund.orderId || 'N/A'}</TableCell>
@@ -309,6 +316,32 @@ const RefundsPage = () => {
                   ))}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between border-t border-slate-100 p-4 dark:border-slate-800">
+                <span className="text-xs font-medium text-slate-500">
+                  Showing {page * pageSize + 1}-{Math.min((page + 1) * pageSize, filteredRefunds.length)} of {filteredRefunds.length} refunds
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 0}
+                    onClick={() => setPage(current => current - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="flex items-center px-2 text-xs font-semibold text-slate-500">
+                    Page {page + 1} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page + 1 >= totalPages}
+                    onClick={() => setPage(current => current + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
@@ -418,5 +451,3 @@ const RefundsPage = () => {
 }
 
 export default RefundsPage
-
-

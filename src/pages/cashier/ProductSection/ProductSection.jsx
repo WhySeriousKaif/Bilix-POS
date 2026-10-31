@@ -6,26 +6,47 @@ import ProductCard from "./ProductCard";
 import { productAPI, userAPI } from "@/services/api";
 import { useCart } from "@/contexts/CartContext";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
 
 const ProductSection = () => {
   const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(() => Number(searchParams.get('productPage') || 0));
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
   const [activeCategory, setActiveCategory] = useState("All");
   const [scanFeedback, setScanFeedback] = useState(null);
   const { addToCart } = useCart();
 
   useEffect(() => {
-    fetchProducts();
+    const loadInitialProducts = async () => {
+      if (page === 0) {
+        await fetchProducts(0, false);
+        return;
+      }
+
+      // A refreshed deep link may point at page 1+; hydrate earlier pages first
+      // so the visible list contains all products up to that page.
+      await fetchProducts(0, false);
+      for (let nextPage = 1; nextPage <= page; nextPage += 1) {
+        await fetchProducts(nextPage, true);
+      }
+    };
+
+    loadInitialProducts();
     // Refresh stock counts right after a checkout, without a manual page reload
-    window.addEventListener('productsUpdated', fetchProducts);
-    return () => window.removeEventListener('productsUpdated', fetchProducts);
+    const refreshProducts = () => fetchProducts(0, false);
+    window.addEventListener('productsUpdated', refreshProducts);
+    return () => window.removeEventListener('productsUpdated', refreshProducts);
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (requestedPage = 0, append = false) => {
     try {
-      setLoading(true);
+      if (append) setLoadingMore(true);
+      else setLoading(true);
       setError(null);
       const profile = await userAPI.getProfile();
       if (!profile?.storeId) {
@@ -33,15 +54,30 @@ const ProductSection = () => {
         setProducts([]);
         return;
       }
-      const data = await productAPI.getByStoreId(profile.storeId);
-      setProducts(data || []);
+      const result = await productAPI.getByStoreIdPaged(profile.storeId, requestedPage, 10);
+      const data = result?.content || [];
+      setProducts(current => append ? [...current, ...data] : data);
+      setPage(requestedPage);
+      setHasMore(!result?.last && data.length > 0);
+      const next = new URLSearchParams(searchParams);
+      next.set('productPage', String(requestedPage));
+      next.set('productSize', '10');
+      next.set('productSort', 'createdAt');
+      next.set('productDirection', 'desc');
+      setSearchParams(next, { replace: true });
     } catch (err) {
       console.error('Error fetching products:', err);
       setError('Failed to load products');
-      setProducts([]);
+      if (!append) setProducts([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const loadMoreProducts = () => {
+    if (loading || loadingMore || !hasMore) return;
+    fetchProducts(page + 1, true);
   };
 
   // Derive category pills (with live counts) straight from the fetched products
@@ -174,7 +210,15 @@ const ProductSection = () => {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 pb-4 sm:pb-6">
+      <div
+        className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 pb-4 sm:pb-6"
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          if (element.scrollHeight - element.scrollTop - element.clientHeight < 160) {
+            loadMoreProducts();
+          }
+        }}
+      >
         {loading ? (
           <div className="flex items-center justify-center h-full p-4">
             <p className="text-sm text-slate-400">Loading products...</p>
@@ -199,6 +243,9 @@ const ProductSection = () => {
               />
             ))}
           </div>
+        )}
+        {loadingMore && (
+          <div className="flex justify-center py-4 text-sm text-slate-400">Loading more products...</div>
         )}
       </div>
     </div>

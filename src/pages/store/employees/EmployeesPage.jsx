@@ -320,7 +320,7 @@ const EmployeesPage = () => {
       toast.success('Employee deleted successfully!')
     } catch (error) {
       console.error('Error deleting employee:', error)
-      toast.error('Failed to delete employee')
+      toast.error(error?.message || 'Failed to delete employee')
     }
   }
 
@@ -702,4 +702,3 @@ const EmployeesPage = () => {
 }
 
 export default EmployeesPage
-

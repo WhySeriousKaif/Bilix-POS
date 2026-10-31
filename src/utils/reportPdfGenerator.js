@@ -134,6 +134,13 @@ const renderTable = (doc, startY, columns, rows) => {
   return yPos
 }
 
+export const exportTabularReportPDF = ({ title, subtitle, columns, rows, filename }) => {
+  const doc = new jsPDF('landscape')
+  renderReportHeader(doc, title, subtitle)
+  renderTable(doc, 40, columns, rows)
+  doc.save(`${filename}.pdf`)
+}
+
 /**
  * Export Sales PDF Report
  */
@@ -161,6 +168,41 @@ export const exportSalesReportPDF = (orders) => {
 
   renderTable(doc, 40, columns, rows)
   doc.save(`sales_report_${new Date().toISOString().split('T')[0]}.pdf`)
+}
+
+/**
+ * Export the system-wide sales list used by the Super Admin dashboard.
+ */
+export const exportSuperAdminSalesPDF = (orders, stores = []) => {
+  const doc = new jsPDF('landscape')
+  renderReportHeader(doc, 'System-Wide Sales Report', 'Filtered sales across all stores and branches')
+
+  const columns = [
+    { header: 'Date', key: 'date', width: 24 },
+    { header: 'Store', key: 'store', width: 30 },
+    { header: 'Customer', key: 'customer', width: 32 },
+    { header: 'Cashier', key: 'cashier', width: 32 },
+    { header: 'Payment', key: 'payment', width: 20 },
+    { header: 'Status', key: 'status', width: 22 },
+    { header: 'Amount', key: 'amount', align: 'right', width: 25 },
+  ]
+
+  const rows = orders.map((order) => {
+    const storeId = order.branch?.storeId || order.storeId
+    const store = stores.find((item) => item.id === storeId)
+    return {
+      date: order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A',
+      store: store?.brand || store?.name || 'Unknown',
+      customer: order.customer?.name || order.customer?.fullName || 'Walk-in Customer',
+      cashier: order.cashier?.fullName || order.cashier?.email || 'Unknown Cashier',
+      payment: order.paymentType || 'CASH',
+      status: order.status || 'N/A',
+      amount: formatCurrency(order.totalAmount),
+    }
+  })
+
+  renderTable(doc, 40, columns, rows)
+  doc.save(`super-admin-sales-${new Date().toISOString().split('T')[0]}.pdf`)
 }
 
 /**
@@ -195,7 +237,7 @@ export const exportInventoryReportPDF = (inventory) => {
 /**
  * Export Staff Performance PDF Report
  */
-export const exportStaffReportPDF = (employees, orders) => {
+export const exportStaffReportPDF = (employees) => {
   const doc = new jsPDF('landscape')
   renderReportHeader(doc, 'Staff & Cashier Directory Report', 'Active employee roster and shift records')
 
@@ -283,7 +325,6 @@ export const exportRefundsReportPDF = (refunds) => {
 export const exportShiftSummaryReportPDF = (shiftData) => {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
-  const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 15
   let yPos = margin
 
@@ -390,4 +431,3 @@ export const exportShiftSummaryReportPDF = (shiftData) => {
 
   doc.save(`shift_summary_${cashierName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`)
 }
-

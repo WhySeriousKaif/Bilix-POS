@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,27 +48,60 @@ const CustomerPaymentSection = () => {
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' })
   const [addingCustomer, setAddingCustomer] = useState(false)
   const [addCustomerError, setAddCustomerError] = useState(null)
+  const [customerParams, setCustomerParams] = useSearchParams()
+  const [customerPage, setCustomerPage] = useState(() => Number(customerParams.get('customerPage') || 0))
+  const customerPageSize = Number(customerParams.get('customerSize') || 10)
+  const [customerSort, setCustomerSort] = useState(() => customerParams.get('customerSort') || 'createdAt')
+  const [customerDirection, setCustomerDirection] = useState(() => customerParams.get('customerDirection') || 'desc')
+  const [customerHasMore, setCustomerHasMore] = useState(true)
+  const [customerLoadingMore, setCustomerLoadingMore] = useState(false)
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false)
 
   useEffect(() => {
     if (isCustomerDialogOpen) {
       fetchCustomers()
     }
-  }, [isCustomerDialogOpen, customerSearch])
+  }, [isCustomerDialogOpen, customerSearch, customerPage, customerPageSize, customerSort, customerDirection])
 
   const fetchCustomers = async () => {
     try {
       setLoading(true)
-      const data = customerSearch.trim()
-        ? await customerAPI.search(customerSearch)
-        : await customerAPI.getAll()
-      setCustomers(data || [])
+      const result = await customerAPI.getPaged(customerPage, customerPageSize, customerSort, customerDirection, customerSearch)
+      const nextCustomers = result?.content || []
+      setCustomers(current => customerPage === 0 ? nextCustomers : [...current, ...nextCustomers])
+      setCustomerHasMore(!result?.last && customerPage < (result?.totalPages || 1) - 1)
     } catch (err) {
       console.error('Error fetching customers:', err)
       setCustomers([])
     } finally {
       setLoading(false)
+      setCustomerLoadingMore(false)
     }
   }
+
+  useEffect(() => {
+    setCustomerPage(0)
+    setCustomerHasMore(true)
+  }, [customerSearch, customerSort, customerDirection, customerPageSize])
+
+  const loadMoreCustomers = () => {
+    if (customerLoadingMore || !customerHasMore || loading) return
+    setCustomerLoadingMore(true)
+    setCustomerPage(page => page + 1)
+  }
+
+  useEffect(() => {
+    if (!isCustomerDialogOpen) return
+    const next = new URLSearchParams(customerParams)
+    next.set('customerPage', String(customerPage))
+    next.set('customerSize', String(customerPageSize))
+    next.set('customerSort', customerSort)
+    next.set('customerDirection', customerDirection)
+    if (customerSearch.trim()) next.set('customerSearch', customerSearch.trim())
+    else next.delete('customerSearch')
+    setCustomerParams(next, { replace: true })
+  }, [isCustomerDialogOpen, customerPage, customerPageSize, customerSort, customerDirection, customerSearch])
 
   const handleSelectCustomer = (customer) => {
     setSelectedCustomer(customer)
@@ -76,6 +110,13 @@ const CustomerPaymentSection = () => {
     setIsAddingCustomer(false)
     setNewCustomer({ name: '', email: '', phone: '' })
     setAddCustomerError(null)
+    clearCustomerUrlParams()
+  }
+
+  const clearCustomerUrlParams = () => {
+    const next = new URLSearchParams(customerParams)
+    ;['customerPage', 'customerSize', 'customerSort', 'customerDirection', 'customerSearch'].forEach((key) => next.delete(key))
+    setCustomerParams(next, { replace: true })
   }
 
   const handleCreateCustomer = async () => {
@@ -104,11 +145,17 @@ const CustomerPaymentSection = () => {
     setDiscount({ ...discount, type, value: 0 })
   }
 
-  const handleProcessPayment = async () => {
+  const handleContinueClick = () => {
     if (cartItems.length === 0) {
       setError('Cart is empty. Add products before processing payment.')
       return
     }
+    setError(null)
+    setIsConfirmOpen(true)
+  }
+
+  const handleProcessPayment = async () => {
+    setIsConfirmOpen(false)
 
     try {
       setProcessing(true)
@@ -227,6 +274,7 @@ const CustomerPaymentSection = () => {
       toast.success('Order placed successfully', {
         description: `Order #${createdOrder.id} · ₹${total.toFixed(2)}`,
       })
+      setIsSuccessOpen(true)
     } catch (err) {
       console.error('Error creating backend order:', err)
       setError('Payment successful but failed to create order: ' + err.message)
@@ -351,12 +399,56 @@ const CustomerPaymentSection = () => {
         )}
         <Button
           className='w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-full font-semibold text-base'
-          onClick={handleProcessPayment}
+          onClick={handleContinueClick}
           disabled={processing || cartItems.length === 0}
         >
           {processing ? 'Processing...' : 'Continue'}
         </Button>
       </div>
+
+      {/* Payment confirmation */}
+      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+        <DialogContent className='max-w-sm rounded-2xl border-slate-200 dark:border-white/10'>
+          <DialogHeader>
+            <DialogTitle>Confirm order</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to create this order?
+            </DialogDescription>
+          </DialogHeader>
+          <div className='rounded-xl bg-slate-50 dark:bg-white/5 p-4 text-sm'>
+            <div className='flex justify-between'>
+              <span className='text-slate-500'>Items</span>
+              <span className='font-semibold'>{cartItems.length}</span>
+            </div>
+            <div className='mt-2 flex justify-between'>
+              <span className='text-slate-500'>Total</span>
+              <span className='font-bold text-blue-600 dark:text-blue-400'>₹{total.toFixed(2)}</span>
+            </div>
+          </div>
+          <div className='flex justify-end gap-2'>
+            <Button variant='outline' onClick={() => setIsConfirmOpen(false)}>Cancel</Button>
+            <Button className='bg-blue-600 text-white hover:bg-blue-700' onClick={handleProcessPayment}>
+              Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success feedback */}
+      <Dialog open={isSuccessOpen} onOpenChange={setIsSuccessOpen}>
+        <DialogContent className='max-w-sm rounded-2xl text-center border-slate-200 dark:border-white/10'>
+          <div className='mx-auto flex size-16 animate-in zoom-in rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400 items-center justify-center'>
+            <svg viewBox='0 0 24 24' className='size-9' fill='none' stroke='currentColor' strokeWidth='2.5'>
+              <path d='m5 12 4 4L19 6' />
+            </svg>
+          </div>
+          <DialogHeader>
+            <DialogTitle className='text-center'>Order created</DialogTitle>
+            <DialogDescription className='text-center'>Payment completed and the order was saved successfully.</DialogDescription>
+          </DialogHeader>
+          <Button className='bg-blue-600 text-white hover:bg-blue-700' onClick={() => setIsSuccessOpen(false)}>Done</Button>
+        </DialogContent>
+      </Dialog>
 
       {/* Customer Selection Dialog */}
       <Dialog
@@ -364,6 +456,7 @@ const CustomerPaymentSection = () => {
         onOpenChange={(open) => {
           setIsCustomerDialogOpen(open)
           if (!open) {
+            clearCustomerUrlParams()
             setIsAddingCustomer(false)
             setAddCustomerError(null)
           }
@@ -433,6 +526,34 @@ const CustomerPaymentSection = () => {
                   onChange={(e) => setCustomerSearch(e.target.value)}
                   className='h-9 sm:h-10 text-sm'
                 />
+                <div className='flex items-center justify-between gap-2'>
+                  <Select value={`${customerSort}:${customerDirection}`} onValueChange={(value) => {
+                    const [sort, direction] = value.split(':')
+                    setCustomerSort(sort)
+                    setCustomerDirection(direction)
+                    setCustomerPage(0)
+                  }}>
+                    <SelectTrigger className='h-9 w-40 text-xs'><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='createdAt:desc'>Newest first</SelectItem>
+                      <SelectItem value='name:asc'>Name A–Z</SelectItem>
+                      <SelectItem value='name:desc'>Name Z–A</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={String(customerPageSize)} onValueChange={(value) => {
+                    const next = new URLSearchParams(customerParams)
+                    next.set('customerSize', value)
+                    setCustomerPage(0)
+                    setCustomerParams(next, { replace: true })
+                  }}>
+                    <SelectTrigger className='h-9 w-28 text-xs'><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='10'>10 / page</SelectItem>
+                      <SelectItem value='25'>25 / page</SelectItem>
+                      <SelectItem value='50'>50 / page</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className='flex gap-2'>
                   <Button
                     variant='ghost'
@@ -459,7 +580,13 @@ const CustomerPaymentSection = () => {
                     No customers found
                   </p>
                 ) : (
-                  <div className='max-h-[40vh] sm:max-h-60 overflow-y-auto space-y-2'>
+                  <div
+                    className='max-h-[40vh] sm:max-h-60 overflow-y-auto space-y-2'
+                    onScroll={(event) => {
+                      const element = event.currentTarget
+                      if (element.scrollHeight - element.scrollTop - element.clientHeight < 48) loadMoreCustomers()
+                    }}
+                  >
                     {customers.map((customer) => (
                       <div
                         key={customer.id}
@@ -473,6 +600,7 @@ const CustomerPaymentSection = () => {
                     ))}
                   </div>
                 )}
+                {customerLoadingMore && <p className='text-xs text-muted-foreground text-center'>Loading more customers…</p>}
               </div>
             </>
           )}

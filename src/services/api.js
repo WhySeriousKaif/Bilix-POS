@@ -67,6 +67,11 @@ const apiCall = async (endpoint, options = {}) => {
 // Customer API
 export const customerAPI = {
   getAll: () => apiCall('/customers'),
+  getPaged: (page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', search = '') => {
+    const params = new URLSearchParams({ page, size, sort: `${sortBy},${direction}` })
+    if (search.trim()) params.set('search', search.trim())
+    return apiCall(`/customers/paged?${params.toString()}`)
+  },
   getById: (id) => apiCall(`/customers/${id}`),
   search: (keyword) => apiCall(`/customers/search?keyword=${encodeURIComponent(keyword)}`),
   create: (customer) => apiCall('/customers', {
@@ -105,6 +110,14 @@ export const orderAPI = {
     });
     return apiCall(`/orders/branch/${branchId}/paged?${params.toString()}`);
   },
+  getSystemPaged: ({ page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', search = '', status = '', storeId = '' } = {}) => {
+    const params = new URLSearchParams({ page, size, sortBy, direction });
+    if (search.trim()) params.set('search', search.trim());
+    if (status) params.set('status', status);
+    if (storeId) params.set('storeId', storeId);
+    return apiCall(`/orders/system/paged?${params.toString()}`);
+  },
+  getSystemSummary: () => apiCall('/orders/system/summary'),
   getTodayByBranch: (branchId) => apiCall(`/orders/today/branch/${branchId}`),
   getRecentByBranch: (branchId) => apiCall(`/orders/recent/${branchId}`),
   create: (orderDto) => apiCall('/orders', {
@@ -125,6 +138,11 @@ export const productAPI = {
   getAll: () => apiCall('/products/public/all'), // Use public endpoint for testing
   getAllAuth: () => apiCall('/products/all'), // Use authenticated endpoint if token is available
   getByStoreId: (storeId) => apiCall(`/products/storeId/${storeId}`),
+  getByStoreIdPaged: (storeId, page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', search = '') => {
+    const params = new URLSearchParams({ page, size, sort: `${sortBy},${direction}` });
+    if (search.trim()) params.set('search', search.trim());
+    return apiCall(`/products/storeId/${storeId}/paged?${params.toString()}`);
+  },
   search: (storeId, keyword) => apiCall(`/products/search/${storeId}/${encodeURIComponent(keyword)}`),
   create: (productDto) => apiCall('/products', {
     method: 'POST',
@@ -241,6 +259,12 @@ export const userAPI = {
   getProfile: () => apiCall('/users/profile'),
   getById: (id) => apiCall(`/users/${id}`),
   getAll: () => apiCall('/users/all'),
+  getPaged: ({ page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', search = '', role = '' } = {}) => {
+    const params = new URLSearchParams({ page, size, sortBy, direction });
+    if (search.trim()) params.set('search', search.trim());
+    if (role) params.set('role', role);
+    return apiCall(`/users/paged?${params.toString()}`);
+  },
 };
 
 // Category API
@@ -308,6 +332,7 @@ export const refundAPI = {
   getByCashier: (cashierId) => apiCall(`/refunds/cashier/${cashierId}`),
   getByBranch: (branchId) => apiCall(`/refunds/branch/${branchId}`),
   getByShift: (shiftReportId) => apiCall(`/refunds/shift/${shiftReportId}`),
+  getByOrder: (orderId) => apiCall(`/refunds/order/${orderId}`),
   create: (refundDto) => apiCall('/refunds', {
     method: 'POST',
     body: JSON.stringify(refundDto),
@@ -362,6 +387,16 @@ export const subscriptionPlanAPI = {
   }),
 };
 
+// Store Dashboard API — single aggregate call behind the store-admin dashboard.
+// Everything it returns is derived server-side from the store's own orders.
+export const dashboardAPI = {
+  getStoreDashboard: (storeId, { period = '7D', granularity = '' } = {}) => {
+    const params = new URLSearchParams({ period });
+    if (granularity) params.set('granularity', granularity);
+    return apiCall(`/dashboard/store/${storeId}?${params.toString()}`);
+  },
+};
+
 // System Settings API
 export const settingsAPI = {
   get: () => apiCall('/settings'),
@@ -370,4 +405,3 @@ export const settingsAPI = {
     body: JSON.stringify(settingsDto),
   }),
 };
-

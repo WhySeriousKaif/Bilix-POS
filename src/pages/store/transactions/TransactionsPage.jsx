@@ -30,8 +30,11 @@ import {
   storeAPI,
   userAPI,
 } from '@/services/api'
+import { useSearchParams } from 'react-router-dom'
+import { exportTabularReportPDF } from '@/utils/reportPdfGenerator'
 
 const TransactionsPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [storeId, setStoreId] = useState(null)
   const [branches, setBranches] = useState([])
   const [transactions, setTransactions] = useState([])
@@ -43,6 +46,11 @@ const TransactionsPage = () => {
   const [typeFilter, setTypeFilter] = useState('all')
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all')
   const [branchFilter, setBranchFilter] = useState('all')
+  const [page, setPage] = useState(() => Math.max(Number(searchParams.get('page') || 0), 0))
+  const [pageSize, setPageSize] = useState(() => Number(searchParams.get('size') || 10))
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || 'date')
+  const [direction, setDirection] = useState(() => searchParams.get('direction') || 'desc')
+  const [exportFormat, setExportFormat] = useState('csv')
   
   // Statistics
   const [stats, setStats] = useState({
@@ -63,7 +71,19 @@ const TransactionsPage = () => {
 
   useEffect(() => {
     filterTransactions()
-  }, [dateFilter, typeFilter, paymentMethodFilter, branchFilter, transactions])
+  }, [dateFilter, typeFilter, paymentMethodFilter, branchFilter, transactions, sortBy, direction])
+
+  useEffect(() => {
+    setPage(0)
+  }, [dateFilter, typeFilter, paymentMethodFilter, branchFilter, pageSize, sortBy, direction])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    next.set('page', String(page)); next.set('size', String(pageSize))
+    next.set('sortBy', sortBy); next.set('direction', direction)
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, sortBy, direction])
 
   const fetchStoreId = async () => {
     try {
@@ -214,6 +234,12 @@ const TransactionsPage = () => {
       filtered = filtered.filter((transaction) => transaction.branch?.id?.toString() === branchFilter)
     }
 
+    filtered.sort((a, b) => {
+      const left = sortBy === 'amount' ? Number(a.amount || 0) : new Date(a.date || 0).getTime()
+      const right = sortBy === 'amount' ? Number(b.amount || 0) : new Date(b.date || 0).getTime()
+      return direction === 'asc' ? left - right : right - left
+    })
+
     setFilteredTransactions(filtered)
   }
 
@@ -222,6 +248,7 @@ const TransactionsPage = () => {
     setTypeFilter('all')
     setPaymentMethodFilter('all')
     setBranchFilter('all')
+    setPage(0)
   }
 
   const formatCurrency = (amount) => {
@@ -255,6 +282,7 @@ const TransactionsPage = () => {
       COMPLETED: 'bg-green-100 text-green-800',
       PENDING: 'bg-yellow-100 text-yellow-800',
       CANCELLED: 'bg-red-100 text-red-800',
+      PARTIALLY_REFUNDED: 'bg-orange-100 text-orange-800',
       REFUNDED: 'bg-orange-100 text-orange-800',
     }
     return colorMap[status] || 'bg-gray-100 text-gray-800'
@@ -266,6 +294,7 @@ const TransactionsPage = () => {
       COMPLETED: 'Completed',
       PENDING: 'Pending',
       CANCELLED: 'Cancelled',
+      PARTIALLY_REFUNDED: 'Partially Refunded',
       REFUNDED: 'Refunded',
     }
     return statusMap[status] || status
@@ -285,6 +314,17 @@ const TransactionsPage = () => {
       getStatusLabel(transaction.status),
     ])
 
+    if (exportFormat === 'pdf') {
+      exportTabularReportPDF({
+        title: 'Transactions Report',
+        subtitle: `Filtered export • ${filteredTransactions.length} transactions`,
+        columns: headers.map((header, index) => ({ header, key: `c${index}`, width: index === 4 ? 32 : 20 })),
+        rows: rows.map(row => Object.fromEntries(row.map((value, index) => [`c${index}`, value]))),
+        filename: `transactions-export-${format(new Date(), 'yyyy-MM-dd')}`,
+      })
+      return
+    }
+
     const csvContent = [
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
@@ -301,6 +341,9 @@ const TransactionsPage = () => {
     link.click()
     document.body.removeChild(link)
   }
+
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize)
+  const visibleTransactions = filteredTransactions.slice(page * pageSize, (page + 1) * pageSize)
 
   if (loading) {
     return (
@@ -420,11 +463,34 @@ const TransactionsPage = () => {
               </SelectContent>
             </Select>
 
+            <Select value={`${sortBy}:${direction}`} onValueChange={(value) => { const [field, order] = value.split(':'); setSortBy(field); setDirection(order) }}>
+              <SelectTrigger className="w-full sm:w-[155px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date:desc">Newest first</SelectItem>
+                <SelectItem value="date:asc">Oldest first</SelectItem>
+                <SelectItem value="amount:desc">Amount high–low</SelectItem>
+                <SelectItem value="amount:asc">Amount low–high</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
+              <SelectTrigger className="w-full sm:w-[125px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 per page</SelectItem>
+                <SelectItem value="25">25 per page</SelectItem>
+                <SelectItem value="50">50 per page</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button variant="outline" onClick={handleResetFilters} className="flex-1 sm:flex-initial">
               <RefreshCw className="size-4 mr-2" />
               Reset Filters
             </Button>
 
+            <Select value={exportFormat} onValueChange={setExportFormat}>
+              <SelectTrigger className="w-full sm:w-[100px]"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="csv">CSV</SelectItem><SelectItem value="pdf">PDF</SelectItem></SelectContent>
+            </Select>
             <Button onClick={handleExport} className="flex-1 sm:flex-initial">
               <Download className="size-4 mr-2" />
               Export Transactions
@@ -461,7 +527,7 @@ const TransactionsPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTransactions.map((transaction) => (
+                  {visibleTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>{formatDateTime(transaction.date)}</TableCell>
                       <TableCell>{transaction.branch?.name || 'Unknown'}</TableCell>
@@ -521,6 +587,15 @@ const TransactionsPage = () => {
                   ))}
                 </TableBody>
               </Table>
+              {totalPages > 0 && (
+                <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                  <span>Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredTransactions.length)} of {filteredTransactions.length} transactions · Page {page + 1} of {totalPages}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((value) => value - 1)}>Previous</Button>
+                    <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((value) => value + 1)}>Next</Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -530,4 +605,3 @@ const TransactionsPage = () => {
 }
 
 export default TransactionsPage
-

@@ -42,8 +42,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { useSearchParams } from 'react-router-dom'
 
 const SalesPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [storeId, setStoreId] = useState(null)
   const [branches, setBranches] = useState([])
   const [allOrders, setAllOrders] = useState([])
@@ -53,6 +55,10 @@ const SalesPage = () => {
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all')
   const [branchFilter, setBranchFilter] = useState('all')
+  const [page, setPage] = useState(() => Math.max(Number(searchParams.get('page') || 0), 0))
+  const [pageSize, setPageSize] = useState(() => Number(searchParams.get('size') || 10))
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || 'createdAt')
+  const [direction, setDirection] = useState(() => searchParams.get('direction') || 'desc')
 
   // Statistics
   const [stats, setStats] = useState({
@@ -79,7 +85,19 @@ const SalesPage = () => {
 
   useEffect(() => {
     filterOrders()
-  }, [searchQuery, statusFilter, paymentMethodFilter, branchFilter, allOrders])
+  }, [searchQuery, statusFilter, paymentMethodFilter, branchFilter, allOrders, sortBy, direction])
+
+  useEffect(() => {
+    setPage(0)
+  }, [searchQuery, statusFilter, paymentMethodFilter, branchFilter, pageSize, sortBy, direction])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    next.set('page', String(page)); next.set('size', String(pageSize))
+    next.set('sortBy', sortBy); next.set('direction', direction)
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, sortBy, direction])
 
   const fetchStoreId = async () => {
     try {
@@ -275,11 +293,10 @@ const SalesPage = () => {
       filtered = filtered.filter((order) => order.branch?.id?.toString() === branchFilter)
     }
 
-    // Sort by date (newest first)
     filtered.sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0)
-      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0)
-      return dateB - dateA
+      const left = sortBy === 'totalAmount' ? Number(a.totalAmount || 0) : new Date(a.createdAt || 0).getTime()
+      const right = sortBy === 'totalAmount' ? Number(b.totalAmount || 0) : new Date(b.createdAt || 0).getTime()
+      return direction === 'asc' ? left - right : right - left
     })
 
     setFilteredOrders(filtered)
@@ -316,6 +333,7 @@ const SalesPage = () => {
       PENDING: 'Pending',
       COMPLETED: 'Completed',
       CANCELLED: 'Cancelled',
+      PARTIALLY_REFUNDED: 'Partially Refunded',
       REFUNDED: 'Refunded',
     }
     return statusMap[status] || status
@@ -326,6 +344,7 @@ const SalesPage = () => {
       PENDING: 'bg-yellow-100 text-yellow-800',
       COMPLETED: 'bg-green-100 text-green-800',
       CANCELLED: 'bg-red-100 text-red-800',
+      PARTIALLY_REFUNDED: 'bg-orange-100 text-orange-800',
       REFUNDED: 'bg-orange-100 text-orange-800',
     }
     return colorMap[status] || 'bg-gray-100 text-gray-800'
@@ -360,6 +379,9 @@ const SalesPage = () => {
     link.click()
     document.body.removeChild(link)
   }
+
+  const totalPages = Math.ceil(filteredOrders.length / pageSize)
+  const visibleOrders = filteredOrders.slice(page * pageSize, (page + 1) * pageSize)
 
   if (loading) {
     return (
@@ -498,10 +520,10 @@ const SalesPage = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={branchSalesData}>
+              <BarChart data={branchSalesData} layout="vertical" margin={{ left: 24, right: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
+                <XAxis type="number" tickFormatter={(value) => formatCurrency(value)} />
+                <YAxis type="category" dataKey="name" width={120} />
                 <Tooltip formatter={(value) => formatCurrency(value)} />
                 <Legend />
                 <Bar dataKey="sales" fill="#f59e0b" name="Sales" />
@@ -563,6 +585,23 @@ const SalesPage = () => {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={`${sortBy}:${direction}`} onValueChange={(value) => { const [field, order] = value.split(':'); setSortBy(field); setDirection(order) }}>
+                <SelectTrigger className="w-full sm:w-[155px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt:desc">Newest first</SelectItem>
+                  <SelectItem value="createdAt:asc">Oldest first</SelectItem>
+                  <SelectItem value="totalAmount:desc">Amount high–low</SelectItem>
+                  <SelectItem value="totalAmount:asc">Amount low–high</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
+                <SelectTrigger className="w-full sm:w-[125px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="25">25 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                </SelectContent>
+              </Select>
               <Button variant="outline" onClick={handleExport}>
                 <Download className="size-4 mr-2" />
                 Export
@@ -592,7 +631,7 @@ const SalesPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => (
+                  {visibleOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell>{formatDate(order.createdAt)}</TableCell>
                       <TableCell>{order.branch?.name || 'Unknown'}</TableCell>
@@ -651,6 +690,15 @@ const SalesPage = () => {
                   ))}
                 </TableBody>
               </Table>
+              {totalPages > 0 && (
+                <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                  <span>Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredOrders.length)} of {filteredOrders.length} sales · Page {page + 1} of {totalPages}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((value) => value - 1)}>Previous</Button>
+                    <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((value) => value + 1)}>Next</Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -660,4 +708,3 @@ const SalesPage = () => {
 }
 
 export default SalesPage
-

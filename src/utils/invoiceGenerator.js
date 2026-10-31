@@ -24,26 +24,12 @@ const getPaymentMethodLabel = (method) => {
 }
 
 /**
- * Get status label
- */
-const getStatusLabel = (status) => {
-  if (!status) return 'Completed'
-  const statusMap = {
-    PENDING: 'Pending',
-    COMPLETED: 'Completed',
-    CANCELLED: 'Cancelled',
-    REFUNDED: 'Refunded',
-  }
-  return statusMap[status] || status
-}
-
-/**
  * Generate an executive blue PDF invoice for an order
  * @param {Object} order - The order object
  * @param {Object} options - Additional options
  * @returns {jsPDF} - The PDF document
  */
-export const generateInvoicePDF = (order, options = {}) => {
+export const generateInvoicePDF = (order) => {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
@@ -297,4 +283,32 @@ export const downloadInvoicePDF = (order, filename = null) => {
   const doc = generateInvoicePDF(order)
   const invoiceFilename = filename || `invoice-#${order.id || 'order'}.pdf`
   doc.save(invoiceFilename)
+}
+
+/**
+ * Open the invoice in the browser print flow. The user can choose a physical
+ * printer or “Save as PDF” from the native print dialog.
+ */
+export const printInvoicePDF = (order) => {
+  const doc = generateInvoicePDF(order)
+  doc.autoPrint()
+  const invoiceUrl = URL.createObjectURL(doc.output('blob'))
+  const printFrame = document.createElement('iframe')
+  printFrame.style.position = 'fixed'
+  printFrame.style.right = '0'
+  printFrame.style.bottom = '0'
+  printFrame.style.width = '0'
+  printFrame.style.height = '0'
+  printFrame.style.border = '0'
+  printFrame.src = invoiceUrl
+  printFrame.onload = () => {
+    printFrame.contentWindow?.focus()
+    printFrame.contentWindow?.print()
+    window.setTimeout(() => {
+      URL.revokeObjectURL(invoiceUrl)
+      printFrame.remove()
+    }, 1000)
+  }
+  document.body.appendChild(printFrame)
+  return true
 }

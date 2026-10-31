@@ -73,7 +73,8 @@ const CardSection = () => {
                           {String(item.quantity).padStart(2, '0')}
                         </span>
                         <button
-                          className='h-6 w-6 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 cursor-pointer'
+                          disabled={item.product.quantity !== undefined && item.product.quantity !== null && item.quantity >= item.product.quantity}
+                          className='h-6 w-6 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         >
                           <Plus className='size-3' />

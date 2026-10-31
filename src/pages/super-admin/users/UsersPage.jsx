@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Search, RefreshCw, Users as UsersIcon, Mail, Phone } from 'lucide-react'
 import { format } from 'date-fns'
+import { useSearchParams } from 'react-router-dom'
 import { userAPI } from '@/services/api'
 
 const Card = ({ className = '', children }) => <div className={`rounded-xl border bg-white dark:bg-slate-900 ${className}`}>{children}</div>
@@ -37,40 +38,73 @@ const ROLE_BADGE_COLORS = {
 }
 
 const UsersPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [roleFilter, setRoleFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '')
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('search') || '')
+  const [roleFilter, setRoleFilter] = useState(() => searchParams.get('role') || 'all')
+  const [page, setPage] = useState(() => Math.max(0, Number(searchParams.get('page')) || 0))
+  const [pageSize, setPageSize] = useState(() => {
+    const value = Number(searchParams.get('size')) || 10
+    return [10, 25, 50].includes(value) ? value : 10
+  })
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || 'createdAt')
+  const [direction, setDirection] = useState(() => searchParams.get('direction') || 'desc')
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const nextSearch = searchQuery.trim()
+      if (nextSearch !== debouncedSearch) {
+        setDebouncedSearch(nextSearch)
+        setPage(0)
+      }
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery, debouncedSearch])
 
   useEffect(() => {
     fetchUsers()
-  }, [])
+  }, [page, pageSize, sortBy, direction, debouncedSearch, roleFilter])
+
+  useEffect(() => {
+    const next = new URLSearchParams()
+    next.set('page', String(page))
+    next.set('size', String(pageSize))
+    next.set('sortBy', sortBy)
+    next.set('direction', direction)
+    if (debouncedSearch) next.set('search', debouncedSearch)
+    if (roleFilter !== 'all') next.set('role', roleFilter)
+    setSearchParams(next, { replace: true })
+  }, [page, pageSize, sortBy, direction, debouncedSearch, roleFilter, setSearchParams])
 
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const data = await userAPI.getAll()
-      setUsers(data || [])
+      const result = await userAPI.getPaged({
+        page,
+        size: pageSize,
+        sortBy,
+        direction,
+        search: debouncedSearch,
+        role: roleFilter === 'all' ? '' : roleFilter,
+      })
+      setUsers(result?.content || [])
+      setTotalPages(result?.totalPages || 0)
+      setTotalElements(result?.totalElements || 0)
     } catch (error) {
       console.error('Error fetching users:', error)
       setUsers([])
+      setTotalPages(0)
+      setTotalElements(0)
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredUsers = users.filter((user) => {
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter
-    if (!matchesRole) return false
-    if (!searchQuery.trim()) return true
-    const query = searchQuery.toLowerCase()
-    return (
-      user.fullName?.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query)
-    )
-  })
-
-  const roleOptions = Array.from(new Set(users.map((u) => u.role))).filter(Boolean)
+  const roleOptions = Object.keys(ROLE_LABELS)
 
   return (
     <div className="h-full overflow-auto p-4 sm:p-6">
@@ -97,23 +131,34 @@ const UsersPage = () => {
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pl-10 text-slate-900 placeholder:text-slate-400 dark:border-white/15 dark:bg-[#111c35] dark:text-white"
             />
           </div>
-          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-56">
+          <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(0) }} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-56">
             <option value="all">All Roles</option>
             {roleOptions.map((role) => <option key={role} value={role}>{ROLE_LABELS[role] || role}</option>)}
+          </select>
+          <select value={`${sortBy}:${direction}`} onChange={(e) => { const [field, order] = e.target.value.split(':'); setSortBy(field); setDirection(order); setPage(0) }} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-48">
+            <option value="createdAt:desc">Newest joined</option>
+            <option value="createdAt:asc">Oldest joined</option>
+            <option value="fullName:asc">Name A–Z</option>
+            <option value="fullName:desc">Name Z–A</option>
+          </select>
+          <select value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0) }} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-36">
+            <option value="10">10 per page</option>
+            <option value="25">25 per page</option>
+            <option value="50">50 per page</option>
           </select>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Users ({filteredUsers.length})</CardTitle>
+          <CardTitle>All Users ({totalElements})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="size-8 animate-spin text-blue-600" />
             </div>
-          ) : filteredUsers.length === 0 ? (
+          ) : users.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <UsersIcon className="size-16 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
@@ -133,7 +178,7 @@ const UsersPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
+                  {users.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.fullName || 'N/A'}</TableCell>
                       <TableCell>
@@ -167,6 +212,17 @@ const UsersPage = () => {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          {!loading && totalPages > 0 && (
+            <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalElements)} of {totalElements} users · Page {page + 1} of {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="border border-slate-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15">Previous</Button>
+                <Button disabled={page + 1 >= totalPages} onClick={() => setPage((current) => current + 1)} className="border border-slate-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15">Next</Button>
+              </div>
             </div>
           )}
         </CardContent>

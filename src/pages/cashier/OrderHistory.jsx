@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,8 +15,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
@@ -23,70 +23,70 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { Search, Eye, Printer, RotateCcw, CalendarIcon, Download, X } from 'lucide-react'
+import { Search, Eye, Printer, RotateCcw, CalendarIcon, X } from 'lucide-react'
 import { orderAPI } from '@/services/api'
 import { toast } from 'sonner'
-import { useConfirm } from '@/contexts/ConfirmContext'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { startOfToday, startOfWeek, startOfMonth, subDays, subMonths } from 'date-fns'
+import { printInvoicePDF } from '@/utils/invoiceGenerator'
 
 const OrderHistory = () => {
+  const [urlParams, setUrlParams] = useSearchParams()
   const [orders, setOrders] = useState([])
   const [filteredOrders, setFilteredOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [dateFilter, setDateFilter] = useState('today') // today, week, month, custom
+  const [searchQuery, setSearchQuery] = useState(() => urlParams.get('search') || '')
+  const [dateFilter, setDateFilter] = useState(() => urlParams.get('range') || 'today') // today, week, month, custom
   const [customDateStart, setCustomDateStart] = useState(null)
   const [customDateEnd, setCustomDateEnd] = useState(null)
+  const [page, setPage] = useState(() => Number(urlParams.get('page') || 0))
+  const pageSize = Number(urlParams.get('size') || 10)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [branchId, setBranchId] = useState(1) // Default branch ID
-  const confirm = useConfirm()
+  const branchId = 1 // Default branch ID
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    setPage(0)
+  }, [dateFilter, customDateStart, customDateEnd])
 
   useEffect(() => {
     fetchOrders()
-  }, [dateFilter, customDateStart, customDateEnd])
+  }, [dateFilter, customDateStart, customDateEnd, page])
 
   useEffect(() => {
     filterOrders()
   }, [searchQuery, orders])
 
+  useEffect(() => {
+    setPage(0)
+  }, [searchQuery])
+
+  useEffect(() => {
+    const next = new URLSearchParams(urlParams)
+    next.set('page', String(page))
+    next.set('size', String(pageSize))
+    next.set('range', dateFilter)
+    if (searchQuery.trim()) next.set('search', searchQuery.trim())
+    else next.delete('search')
+    setUrlParams(next, { replace: true })
+  }, [page, pageSize, dateFilter, searchQuery])
+
+  const visibleOrders = filteredOrders
+
   const fetchOrders = async () => {
     try {
       setLoading(true)
-      let data = []
-      
-      if (dateFilter === 'today') {
-        data = await orderAPI.getTodayByBranch(branchId)
-      } else if (dateFilter === 'week') {
-        // Get orders by branch and filter by week on frontend
-        data = await orderAPI.getByBranch(branchId)
-        const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 }) // Monday
-        data = data.filter(order => new Date(order.createdAt) >= weekStart)
-      } else if (dateFilter === 'month') {
-        // Get orders by branch and filter by month on frontend
-        data = await orderAPI.getByBranch(branchId)
-        const monthStart = startOfMonth(new Date())
-        data = data.filter(order => new Date(order.createdAt) >= monthStart)
-      } else if (dateFilter === 'custom' && customDateStart && customDateEnd) {
-        // Get orders by branch and filter by custom date range
-        data = await orderAPI.getByBranch(branchId)
-        const start = new Date(customDateStart)
-        const end = new Date(customDateEnd)
-        end.setHours(23, 59, 59, 999) // Include entire end date
-        data = data.filter(order => {
-          const orderDate = new Date(order.createdAt)
-          return orderDate >= start && orderDate <= end
-        })
-      } else {
-        // Default: get all orders by branch
-        data = await orderAPI.getByBranch(branchId)
-      }
+      const result = await orderAPI.getByBranchPaged(branchId, page, pageSize)
+      const data = result?.content || []
+      setTotalPages(result?.totalPages || 0)
+      setTotalElements(result?.totalElements || 0)
       
       // Sort by date descending (most recent first)
       data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      setOrders(data || [])
+      setOrders(data)
     } catch (error) {
       console.error('Error fetching orders:', error)
       setOrders([])
@@ -121,38 +121,34 @@ const OrderHistory = () => {
     setFilteredOrders(filtered)
   }
 
-  const handleViewOrder = async (orderId) => {
+  const handleViewOrder = async (orderSummary) => {
     try {
-      const order = await orderAPI.getById(orderId)
-      setSelectedOrder(order)
+      const order = await orderAPI.getById(orderSummary.id)
+      // The paged listing is the freshest source for status; order details may still
+      // be served from the backend's per-order cache immediately after a refund.
+      setSelectedOrder({ ...order, status: orderSummary.status || order.status })
       setIsViewDialogOpen(true)
     } catch (error) {
       console.error('Error fetching order details:', error)
     }
   }
 
-  const handlePrintOrder = async (order) => {
-    // Generate and download PDF invoice
+  const handlePrintOrder = (order) => {
+    // Open the native print flow so the cashier can print or choose Save as PDF.
     try {
-      const { downloadInvoicePDF } = await import('@/utils/invoiceGenerator')
-      downloadInvoicePDF(order)
+      const opened = printInvoicePDF(order)
+      if (!opened) {
+        toast.error('The print window was blocked. Please allow pop-ups for this POS.')
+      }
     } catch (error) {
       console.error('Error generating PDF invoice:', error)
       toast.error('Failed to generate invoice. Please try again.')
     }
   }
 
-  const handleRefundOrder = async (order) => {
-    // TODO: Implement refund functionality
-    const ok = await confirm({
-      title: 'Process refund?',
-      description: `Do you want to process a refund for Order #${order.id}?`,
-      confirmLabel: 'Process Refund',
-    })
-    if (ok) {
-      console.log('Processing refund for order:', order.id)
-      // Navigate to refund page or open refund dialog
-    }
+  const handleRefundOrder = (order) => {
+    setIsViewDialogOpen(false)
+    navigate(`/cashier/returns?orderId=${encodeURIComponent(order.id)}`)
   }
 
   const formatDateTime = (dateTime) => {
@@ -276,7 +272,7 @@ const OrderHistory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => (
+                  {visibleOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">#{order.id}</TableCell>
                       <TableCell>{formatDateTime(order.createdAt)}</TableCell>
@@ -302,6 +298,8 @@ const OrderHistory = () => {
                           order.status === 'COMPLETED' && "bg-green-100 text-green-800",
                           order.status === 'PENDING' && "bg-yellow-100 text-yellow-800",
                           order.status === 'CANCELLED' && "bg-red-100 text-red-800",
+                          order.status === 'PARTIALLY_REFUNDED' && "bg-orange-100 text-orange-800",
+                          order.status === 'REFUNDED' && "bg-orange-100 text-orange-800",
                           !order.status && "bg-gray-100 text-gray-800"
                         )}>
                           {order.status || 'N/A'}
@@ -313,7 +311,7 @@ const OrderHistory = () => {
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0"
-                            onClick={() => handleViewOrder(order.id)}
+                            onClick={() => handleViewOrder(order)}
                             title="View Order"
                           >
                             <Eye className="size-4" />
@@ -333,6 +331,7 @@ const OrderHistory = () => {
                             className="h-8 w-8 p-0"
                             onClick={() => handleRefundOrder(order)}
                             title="Refund Order"
+                            disabled={!['COMPLETED', 'PARTIALLY_REFUNDED'].includes(order.status)}
                           >
                             <RotateCcw className="size-4" />
                           </Button>
@@ -342,6 +341,31 @@ const OrderHistory = () => {
                   ))}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-slate-200 dark:border-white/10 p-4">
+                  <span className="text-sm text-muted-foreground">
+                    Page {page + 1} of {totalPages} · {totalElements} orders
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page === 0}
+                      onClick={() => setPage(current => current - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page + 1 >= totalPages}
+                      onClick={() => setPage(current => current + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -349,7 +373,10 @@ const OrderHistory = () => {
 
       {/* View Order Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0" showCloseButton={false}>
+        <DialogContent
+          className="w-[calc(100vw-2rem)] sm:max-w-6xl max-h-[92vh] overflow-y-auto p-0"
+          showCloseButton={false}
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">
             <DialogTitle className="text-2xl font-bold m-0">Order Details - {selectedOrder?.id}</DialogTitle>
@@ -384,9 +411,11 @@ const OrderHistory = () => {
                             selectedOrder.status === 'COMPLETED' && "bg-green-100 text-green-800",
                             selectedOrder.status === 'PENDING' && "bg-yellow-100 text-yellow-800",
                             selectedOrder.status === 'CANCELLED' && "bg-red-100 text-red-800",
+                            selectedOrder.status === 'PARTIALLY_REFUNDED' && "bg-orange-100 text-orange-800",
+                            selectedOrder.status === 'REFUNDED' && "bg-orange-100 text-orange-800",
                             !selectedOrder.status && "bg-gray-100 text-gray-800"
                           )}>
-                            {selectedOrder.status || 'N/A'}
+                            {selectedOrder.status?.replaceAll('_', ' ') || 'N/A'}
                           </span>
                         </p>
                       </div>
@@ -496,17 +525,6 @@ const OrderHistory = () => {
                 <Button
                   variant="outline"
                   className="flex-1 sm:flex-initial gap-2"
-                  onClick={() => {
-                    // TODO: Implement PDF download
-                    console.log('Download PDF for order:', selectedOrder.id)
-                  }}
-                >
-                  <Download className="h-4 w-4" />
-                  Download PDF
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 sm:flex-initial gap-2"
                   onClick={() => handlePrintOrder(selectedOrder)}
                 >
                   <Printer className="h-4 w-4" />
@@ -516,6 +534,7 @@ const OrderHistory = () => {
                   variant="default"
                   className="flex-1 sm:flex-initial gap-2 bg-destructive hover:bg-destructive/90"
                   onClick={() => handleRefundOrder(selectedOrder)}
+                  disabled={!['COMPLETED', 'PARTIALLY_REFUNDED'].includes(selectedOrder.status)}
                 >
                   <RotateCcw className="h-4 w-4" />
                   Initiate Return
@@ -530,4 +549,3 @@ const OrderHistory = () => {
 }
 
 export default OrderHistory
-

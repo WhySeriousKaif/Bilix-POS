@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -30,13 +31,23 @@ import {
 } from 'lucide-react'
 import { customerAPI, orderAPI } from '@/services/api'
 import { toast } from 'sonner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const CashierCustomersPage = () => {
   const [customers, setCustomers] = useState([])
-  const [filteredCustomers, setFilteredCustomers] = useState([])
+  const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '')
+  const [page, setPage] = useState(() => Math.max(0, Number(searchParams.get('page') || 0)))
+  const pageSize = Number(searchParams.get('size') || 10)
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || 'createdAt')
+  const [direction, setDirection] = useState(() => searchParams.get('direction') || 'desc')
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState(null)
+  const [savingEdit, setSavingEdit] = useState(false)
   const [newCustomer, setNewCustomer] = useState({
     name: '',
     email: '',
@@ -45,19 +56,15 @@ const CashierCustomersPage = () => {
 
   useEffect(() => {
     fetchCustomers()
-  }, [])
-
-  useEffect(() => {
-    filterCustomers()
-  }, [searchQuery, customers])
+  }, [page, pageSize, sortBy, direction, searchQuery])
 
   const fetchCustomers = async () => {
     try {
       setLoading(true)
-      const data = await customerAPI.getAll()
+      const result = await customerAPI.getPaged(page, pageSize, sortBy, direction, searchQuery)
       // Fetch order counts for each customer
       const customersWithOrders = await Promise.all(
-        (data || []).map(async (customer) => {
+        (result?.content || []).map(async (customer) => {
           try {
             const orders = await orderAPI.getByCustomerId(customer.id)
             return {
@@ -65,7 +72,7 @@ const CashierCustomersPage = () => {
               orderCount: orders?.length || 0,
               totalSpent: orders?.reduce((sum, order) => sum + (order.totalAmount || 0), 0) || 0,
             }
-          } catch (err) {
+          } catch {
             return {
               ...customer,
               orderCount: 0,
@@ -75,6 +82,8 @@ const CashierCustomersPage = () => {
         })
       )
       setCustomers(customersWithOrders)
+      setTotalPages(result?.totalPages || 0)
+      setTotalElements(result?.totalElements || 0)
     } catch (error) {
       console.error('Error fetching customers:', error)
       setCustomers([])
@@ -83,26 +92,16 @@ const CashierCustomersPage = () => {
     }
   }
 
-  const filterCustomers = () => {
-    if (!searchQuery.trim()) {
-      setFilteredCustomers(customers)
-      return
-    }
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    next.set('page', String(page)); next.set('size', String(pageSize))
+    next.set('sortBy', sortBy); next.set('direction', direction)
+    if (searchQuery.trim()) next.set('search', searchQuery.trim())
+    else next.delete('search')
+    setSearchParams(next, { replace: true })
+  }, [page, pageSize, sortBy, direction, searchQuery])
 
-    const query = searchQuery.toLowerCase()
-    const filtered = customers.filter(customer => {
-      const name = customer.name?.toLowerCase() || customer.fullName?.toLowerCase() || ''
-      const email = customer.email?.toLowerCase() || ''
-      const phone = customer.phone?.toLowerCase() || ''
-
-      return (
-        name.includes(query) ||
-        email.includes(query) ||
-        phone.includes(query)
-      )
-    })
-    setFilteredCustomers(filtered)
-  }
+  useEffect(() => { setPage(0) }, [searchQuery])
 
   const handleAddCustomer = async () => {
     try {
@@ -122,8 +121,32 @@ const CashierCustomersPage = () => {
     }
   }
 
+  const handleEditCustomer = async () => {
+    if (!editingCustomer?.name?.trim()) {
+      toast.error('Name is required')
+      return
+    }
+    try {
+      setSavingEdit(true)
+      await customerAPI.update(editingCustomer.id, {
+        name: editingCustomer.name.trim(),
+        email: editingCustomer.email?.trim() || null,
+        phone: editingCustomer.phone?.trim() || null,
+      })
+      setIsEditDialogOpen(false)
+      setEditingCustomer(null)
+      await fetchCustomers()
+      toast.success('Customer details updated successfully')
+    } catch (error) {
+      console.error('Error updating customer:', error)
+      toast.error(`Error updating customer: ${error.message}`)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   const summary = {
-    total: customers.length,
+    total: totalElements,
     withOrders: customers.filter(c => c.orderCount > 0).length,
     totalRevenue: customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0),
   }
@@ -194,6 +217,16 @@ const CashierCustomersPage = () => {
               className="pl-10"
             />
           </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <Select value={String(pageSize)} onValueChange={(value) => { setPage(0); const next = new URLSearchParams(searchParams); next.set('size', value); setSearchParams(next, { replace: true }) }}>
+              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="10">10 / page</SelectItem><SelectItem value="25">25 / page</SelectItem><SelectItem value="50">50 / page</SelectItem></SelectContent>
+            </Select>
+            <Select value={`${sortBy}:${direction}`} onValueChange={(value) => { const [sort, dir] = value.split(':'); setSortBy(sort); setDirection(dir); setPage(0) }}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="createdAt:desc">Newest first</SelectItem><SelectItem value="name:asc">Name A–Z</SelectItem><SelectItem value="name:desc">Name Z–A</SelectItem></SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -204,7 +237,7 @@ const CashierCustomersPage = () => {
             <div className="flex items-center justify-center h-64">
               <RefreshCw className="size-8 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredCustomers.length === 0 ? (
+          ) : customers.length === 0 ? (
             <div className="flex items-center justify-center h-64">
               <p className="text-muted-foreground">
                 {searchQuery ? 'No customers found' : 'No customers available'}
@@ -223,7 +256,7 @@ const CashierCustomersPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCustomers.map((customer) => (
+                {customers.map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell className="font-medium">
                       {customer.name || customer.fullName || 'N/A'}
@@ -249,7 +282,20 @@ const CashierCustomersPage = () => {
                       ₹{(customer.totalSpent || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="h-8">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => {
+                          setEditingCustomer({
+                            id: customer.id,
+                            name: customer.name || customer.fullName || '',
+                            email: customer.email || '',
+                            phone: customer.phone || '',
+                          })
+                          setIsEditDialogOpen(true)
+                        }}
+                      >
                         <Edit className="size-4" />
                       </Button>
                     </TableCell>
@@ -257,6 +303,15 @@ const CashierCustomersPage = () => {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {!loading && totalPages > 0 && (
+            <div className="flex items-center justify-between border-t p-4 text-sm">
+              <span>Page {page + 1} of {totalPages} · {totalElements} customers</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(value => value - 1)}>Previous</Button>
+                <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(value => value + 1)}>Next</Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -306,10 +361,42 @@ const CashierCustomersPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+            <DialogDescription>Update the customer details saved in the database.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Enter customer name"
+              value={editingCustomer?.name || ''}
+              onChange={(e) => setEditingCustomer(current => ({ ...current, name: e.target.value }))}
+            />
+            <Input
+              type="email"
+              placeholder="Enter email address"
+              value={editingCustomer?.email || ''}
+              onChange={(e) => setEditingCustomer(current => ({ ...current, email: e.target.value }))}
+            />
+            <Input
+              type="tel"
+              placeholder="Enter phone number"
+              value={editingCustomer?.phone || ''}
+              onChange={(e) => setEditingCustomer(current => ({ ...current, phone: e.target.value }))}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditCustomer} disabled={savingEdit}>
+              {savingEdit ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 export default CashierCustomersPage
-
-

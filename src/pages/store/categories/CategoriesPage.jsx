@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Search, Plus, RefreshCw, Edit, Trash2, Tag, Package } from 'lucide-react'
-import { categoryAPI, userAPI, storeAPI, productAPI } from '@/services/api'
+import { categoryAPI, userAPI, storeAPI } from '@/services/api'
 import { toast } from 'sonner'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import NoStoreBanner from '@/components/NoStoreBanner'
@@ -38,7 +38,6 @@ const CategoriesPage = () => {
   })
   const [creating, setCreating] = useState(false)
   const [updating, setUpdating] = useState(false)
-  const [productCounts, setProductCounts] = useState({}) // categoryId -> count
 
   useEffect(() => {
     fetchStoreId()
@@ -47,7 +46,6 @@ const CategoriesPage = () => {
   useEffect(() => {
     if (storeId) {
       fetchCategories()
-      fetchProductCounts()
     }
   }, [storeId])
 
@@ -86,23 +84,6 @@ const CategoriesPage = () => {
       setCategories([])
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchProductCounts = async () => {
-    try {
-      const products = await productAPI.getByStoreId(storeId)
-      // Count products per category
-      const counts = {}
-      products.forEach((product) => {
-        if (product.category?.id) {
-          counts[product.category.id] = (counts[product.category.id] || 0) + 1
-        }
-      })
-      setProductCounts(counts)
-    } catch (error) {
-      console.error('Error fetching product counts:', error)
-      setProductCounts({})
     }
   }
 
@@ -166,7 +147,6 @@ const CategoriesPage = () => {
       // Reset form
       setNewCategory({ name: '', description: '' })
       await fetchCategories()
-      await fetchProductCounts() // Refresh product counts
       toast.success('Category created successfully!')
     } catch (error) {
       console.error('Error creating category:', error)
@@ -233,7 +213,6 @@ const CategoriesPage = () => {
     try {
       await categoryAPI.delete(id)
       await fetchCategories()
-      await fetchProductCounts() // Refresh product counts
       toast.success('Category deleted successfully!')
     } catch (error) {
       console.error('Error deleting category:', error)
@@ -326,7 +305,7 @@ const CategoriesPage = () => {
                       <TableCell>
                         <div className="flex items-center gap-2 text-slate-900 dark:text-white">
                           <Package className="size-4 text-slate-400" />
-                          <span>{productCounts[category.id] || 0}</span>
+                          <span>{category.productCount || 0}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
@@ -456,4 +435,3 @@ const CategoriesPage = () => {
 }
 
 export default CategoriesPage
-

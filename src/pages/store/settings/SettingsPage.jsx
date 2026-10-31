@@ -61,13 +61,13 @@ const SettingsPage = () => {
         const store = stores[0]
         setStoreInfo(store)
         setStoreForm({
-          brand: store.brand || '',
-          description: store.description || '',
+          brand: store.brand || store.brandName || '',
+          description: store.description || store.Description || '',
           storeType: store.storeType || '',
           contact: {
-            address: store.contact?.address || '',
-            phone: store.contact?.phone || '',
-            email: store.contact?.email || '',
+            address: store.contact?.address || store.address || '',
+            phone: store.contact?.phone || store.phone || '',
+            email: store.contact?.email || store.email || '',
           },
         })
       }
@@ -101,7 +101,7 @@ const SettingsPage = () => {
       toast.success('Store settings updated successfully!')
     } catch (error) {
       console.error('Error updating store settings:', error)
-      toast.error('Failed to update store settings')
+      toast.error(error?.message || 'Failed to update store settings')
     } finally {
       setSaving(false)
     }
@@ -348,4 +348,3 @@ const SettingsPage = () => {
 }
 
 export default SettingsPage
-

@@ -47,6 +47,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { exportTabularReportPDF } from '@/utils/reportPdfGenerator'
 
 const ReportsPage = () => {
   const [storeId, setStoreId] = useState(null)
@@ -57,6 +58,7 @@ const ReportsPage = () => {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [selectedBranch, setSelectedBranch] = useState('all')
+  const [exportFormat, setExportFormat] = useState('csv')
   
   // Report data
   const [reportData, setReportData] = useState(null)
@@ -428,6 +430,17 @@ const ReportsPage = () => {
         break
     }
 
+    if (exportFormat === 'pdf') {
+      exportTabularReportPDF({
+        title: `${reportType} report`,
+        subtitle: `Store report for ${dateRange}`,
+        columns: headers.map((header, index) => ({ header, key: `c${index}`, width: 20 })),
+        rows: rows.map(row => Object.fromEntries(row.map((value, index) => [`c${index}`, value]))),
+        filename: `${reportType}-report-${format(new Date(), 'yyyy-MM-dd')}`,
+      })
+      return
+    }
+
     csvContent = [
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
@@ -462,10 +475,13 @@ const ReportsPage = () => {
           <p className="text-slate-500 dark:text-slate-400 mt-1">Generate and view detailed reports</p>
         </div>
         {reportData && (
-          <Button onClick={handleExport}>
-            <Download className="size-4 mr-2" />
-            Export Report
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select value={exportFormat} onValueChange={setExportFormat}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="csv">CSV</SelectItem><SelectItem value="pdf">PDF</SelectItem></SelectContent>
+            </Select>
+            <Button onClick={handleExport}><Download className="size-4 mr-2" />Export Report</Button>
+          </div>
         )}
       </div>
 
@@ -643,9 +659,14 @@ const ReportsPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Render appropriate table based on report type */}
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  Detailed table view will be displayed here
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm"><thead><tr className="border-b border-white/10 text-left">
+                    <th className="py-3">Name</th><th className="py-3">Quantity / Orders</th><th className="py-3 text-right">Revenue</th>
+                  </tr></thead><tbody>
+                    {(reportData.topProducts || reportData.topEmployees || reportData.dailyFinancial || []).map((row, i) => (
+                      <tr key={i} className="border-b border-white/5"><td className="py-3">{row.name || row.date}</td><td className="py-3">{row.quantity ?? row.orders ?? row.income}</td><td className="py-3 text-right">{formatCurrency(row.revenue ?? row.net ?? 0)}</td></tr>
+                    ))}
+                  </tbody></table>
                 </div>
               </CardContent>
             </Card>
@@ -657,4 +678,3 @@ const ReportsPage = () => {
 }
 
 export default ReportsPage
-

@@ -311,8 +311,8 @@ const BranchesPage = () => {
                     <TableHead>Branch Name</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Manager</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>Branch Phone</TableHead>
+                    <TableHead>Branch Email</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -329,9 +329,17 @@ const BranchesPage = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Users className="size-4 text-slate-500 dark:text-slate-400" />
-                          <span>{branch.manager?.fullName || 'Not assigned'}</span>
+                        <div className="flex items-start gap-2">
+                          <Users className="mt-1 size-4 shrink-0 text-slate-500 dark:text-slate-400" />
+                          <div className="min-w-0">
+                            <span className="block">{branch.manager?.fullName || 'Not assigned'}</span>
+                            {branch.manager && (
+                              <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                                {branch.manager.email}
+                                {branch.manager.phone ? ` · ${branch.manager.phone}` : ''}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -505,4 +513,3 @@ const BranchesPage = () => {
 }
 
 export default BranchesPage
-

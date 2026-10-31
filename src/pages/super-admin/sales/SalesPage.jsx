@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   DollarSign,
   ShoppingCart,
@@ -9,11 +11,11 @@ import {
   Store,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { exportSuperAdminSalesPDF } from '@/utils/reportPdfGenerator'
 import {
   orderAPI,
   branchAPI,
   storeAPI,
-  refundAPI,
 } from '@/services/api'
 import {
   LineChart,
@@ -42,12 +44,25 @@ const TableHead = ({ children, className = '' }) => <th className={`p-3 text-lef
 const TableCell = ({ children, className = '' }) => <td className={`p-3 ${className}`}>{children}</td>
 
 const SuperAdminSalesPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [storeFilter, setStoreFilter] = useState('all')
-  const [allOrders, setAllOrders] = useState([])
-  const [filteredOrders, setFilteredOrders] = useState([])
+  const [tableLoading, setTableLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '')
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('search') || '')
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'all')
+  const [storeFilter, setStoreFilter] = useState(() => searchParams.get('storeId') || 'all')
+  const [pagedOrders, setPagedOrders] = useState([])
+  const [page, setPage] = useState(() => Math.max(0, Number(searchParams.get('page')) || 0))
+  const [pageSize, setPageSize] = useState(() => {
+    const value = Number(searchParams.get('size')) || 10
+    return [10, 25, 50].includes(value) ? value : 10
+  })
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || 'createdAt')
+  const [direction, setDirection] = useState(() => searchParams.get('direction') || 'desc')
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [exportFormat, setExportFormat] = useState('csv')
+  const [exporting, setExporting] = useState(false)
   const [stores, setStores] = useState([])
   
   // Statistics
@@ -69,8 +84,57 @@ const SuperAdminSalesPage = () => {
   }, [])
 
   useEffect(() => {
-    filterOrders()
-  }, [searchQuery, statusFilter, storeFilter, allOrders])
+    const timer = window.setTimeout(() => {
+      const nextSearch = searchQuery.trim()
+      if (nextSearch !== debouncedSearch) {
+        setDebouncedSearch(nextSearch)
+        setPage(0)
+      }
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery, debouncedSearch])
+
+  useEffect(() => {
+    fetchSalesPage()
+  }, [page, pageSize, sortBy, direction, debouncedSearch, statusFilter, storeFilter])
+
+  useEffect(() => {
+    const next = new URLSearchParams()
+    next.set('page', String(page))
+    next.set('size', String(pageSize))
+    next.set('sortBy', sortBy)
+    next.set('direction', direction)
+    if (debouncedSearch) next.set('search', debouncedSearch)
+    if (statusFilter !== 'all') next.set('status', statusFilter)
+    if (storeFilter !== 'all') next.set('storeId', storeFilter)
+    setSearchParams(next, { replace: true })
+  }, [page, pageSize, sortBy, direction, debouncedSearch, statusFilter, storeFilter, setSearchParams])
+
+  const fetchSalesPage = async () => {
+    try {
+      setTableLoading(true)
+      const result = await orderAPI.getSystemPaged({
+        page,
+        size: pageSize,
+        sortBy,
+        direction,
+        search: debouncedSearch,
+        status: statusFilter === 'all' ? '' : statusFilter,
+        storeId: storeFilter === 'all' ? '' : storeFilter,
+      })
+      setPagedOrders(result?.content || [])
+      setTotalPages(result?.totalPages || 0)
+      setTotalElements(result?.totalElements || 0)
+    } catch (error) {
+      console.error('Error fetching paged sales:', error)
+      setPagedOrders([])
+      setTotalPages(0)
+      setTotalElements(0)
+      toast.error(error.message || 'Could not load sales')
+    } finally {
+      setTableLoading(false)
+    }
+  }
 
   const fetchSalesData = async () => {
     try {
@@ -80,155 +144,58 @@ const SuperAdminSalesPage = () => {
       const allStores = await storeAPI.getAll()
       setStores(allStores)
 
-      // Fetch orders from all branches of all stores. Track which store (and therefore
-      // which Store Admin) each branch belongs to, so sales can be broken down by admin.
-      const allBranches = []
+      const [summary, branchArrays] = await Promise.all([
+        orderAPI.getSystemSummary(),
+        Promise.all(allStores.map((store) => branchAPI.getByStoreId(store.id).catch(() => []))),
+      ])
+      const allBranches = branchArrays.flat()
       const branchToStore = {}
-      for (const store of allStores) {
-        try {
-          const branches = await branchAPI.getByStoreId(store.id).catch(() => [])
-          branches.forEach((branch) => {
-            branchToStore[branch.id] = store
-          })
-          allBranches.push(...branches)
-        } catch (error) {
-          console.error(`Error fetching branches for store ${store.id}:`, error)
-        }
-      }
-
-      // Fetch orders from all branches
-      const ordersArrays = await Promise.all(
-        allBranches.map(branch => orderAPI.getByBranch(branch.id).catch(() => []))
-      )
-      const orders = ordersArrays.flat()
-
-      // Fetch refunds
-      const refundsArrays = await Promise.all(
-        allBranches.map(branch => refundAPI.getByBranch(branch.id).catch(() => []))
-      )
-      const allRefunds = refundsArrays.flat()
-
-      setAllOrders(orders)
-
-      // Calculate statistics
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-
-      const todayOrders = orders.filter(order => {
-        if (!order.createdAt) return false
-        const orderDate = new Date(order.createdAt)
-        return orderDate >= today && orderDate < tomorrow
+      allStores.forEach((store, index) => {
+        branchArrays[index].forEach((branch) => { branchToStore[branch.id] = store })
       })
-
-      const totalSales = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
-      const totalRefunds = allRefunds.reduce((sum, refund) => sum + (refund.amount || 0), 0)
-      const netSales = totalSales - totalRefunds
 
       setStats({
-        totalSales,
-        ordersToday: todayOrders.length,
-        totalRefunds: allRefunds.length,
-        netSales,
+        totalSales: summary.totalSales || 0,
+        ordersToday: summary.ordersToday || 0,
+        totalRefunds: summary.totalRefunds || 0,
+        netSales: summary.netSales || 0,
       })
 
-      // Prepare sales data for last 7 days
-      const salesByDay = {}
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date()
-        date.setDate(date.getDate() - (6 - i))
-        const dateStr = format(date, 'MMM dd')
-        salesByDay[dateStr] = 0
-        return dateStr
-      })
-
-      orders.forEach((order) => {
-        if (order.createdAt) {
-          const orderDate = new Date(order.createdAt)
-          const dateStr = format(orderDate, 'MMM dd')
-          if (salesByDay.hasOwnProperty(dateStr)) {
-            salesByDay[dateStr] += order.totalAmount || 0
-          }
-        }
-      })
-
-      setSalesData(
-        last7Days.map((day) => ({
-          date: day,
-          sales: salesByDay[day] || 0,
-        }))
-      )
-
-      // Calculate payment method distribution (dynamic from backend)
-      const paymentMethods = {}
-      orders.forEach((order) => {
-        const method = order.paymentType || 'CASH'
-        if (!paymentMethods[method]) {
-          paymentMethods[method] = 0
-        }
-        paymentMethods[method] += order.totalAmount || 0
-      })
-
-      // Convert to array format dynamically
-      setPaymentData(
-        Object.entries(paymentMethods).map(([name, value]) => ({
-          name: getPaymentMethodLabel(name),
-          value,
-        }))
-      )
-
-      // Calculate sales by store
-      const salesByStore = {}
-      orders.forEach((order) => {
-        const storeId = order.branch?.store?.id || order.storeId
-        if (storeId) {
-          if (!salesByStore[storeId]) {
-            salesByStore[storeId] = { storeId, sales: 0, orders: 0 }
-          }
-          salesByStore[storeId].sales += order.totalAmount || 0
-          salesByStore[storeId].orders += 1
-        }
-      })
-
-      const storeSales = Object.values(salesByStore)
+      setSalesData((summary.dailySales || []).map((item) => ({
+        date: format(new Date(`${item.name}T00:00:00`), 'MMM dd'),
+        sales: item.amount || 0,
+      })))
+      setPaymentData((summary.paymentMethods || []).map((item) => ({
+        name: getPaymentMethodLabel(item.name),
+        value: item.amount || 0,
+      })))
+      setStoreSalesData((summary.storeSales || [])
         .map(item => {
-          const store = allStores.find(s => s.id === item.storeId)
+          const store = allStores.find(s => s.id === item.id)
           return {
-            name: store?.brand || store?.name || `Store ${item.storeId}`,
+            name: store?.brand || store?.name || `Store ${item.id}`,
             sales: item.sales,
             orders: item.orders,
           }
         })
         .sort((a, b) => b.sales - a.sales)
-        .slice(0, 10)
+        .slice(0, 10))
 
-      setStoreSalesData(storeSales)
-
-      // Break sales down by Store Admin -> Store -> Branch, so the platform owner can see
-      // which admin/brand is driving revenue and which of their branches carry it.
-      const salesByBranch = {}
-      orders.forEach((order) => {
-        const branchId = order.branch?.id
-        if (!branchId) return
-        if (!salesByBranch[branchId]) {
-          salesByBranch[branchId] = { branchId, sales: 0, orders: 0 }
-        }
-        salesByBranch[branchId].sales += order.totalAmount || 0
-        salesByBranch[branchId].orders += 1
-      })
+      const salesByBranch = Object.fromEntries(
+        (summary.branchSales || []).map((item) => [item.id, item])
+      )
 
       const branchRows = allBranches.map((branch) => {
         const store = branchToStore[branch.id]
-        const agg = salesByBranch[branch.id] || { sales: 0, orders: 0 }
+        const aggregate = salesByBranch[branch.id] || { sales: 0, orders: 0 }
         return {
           storeAdminId: store?.storeAdmin?.id ?? 'unknown',
           storeAdminName: store?.storeAdmin?.fullName || 'Unassigned',
           storeAdminEmail: store?.storeAdmin?.email || '',
           storeName: store?.brand || 'Unknown Store',
           branchName: branch.name || `Branch ${branch.id}`,
-          sales: agg.sales,
-          orders: agg.orders,
+          sales: aggregate.sales,
+          orders: aggregate.orders,
         }
       })
 
@@ -260,47 +227,6 @@ const SuperAdminSalesPage = () => {
     } finally {
       setLoading(false)
     }
-  }
-
-  const filterOrders = () => {
-    let filtered = [...allOrders]
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter((order) => {
-        const customerName = order.customer?.name || order.customer?.fullName || 'Unknown Customer'
-        const cashierName = order.cashier?.fullName || order.cashier?.email || 'Unknown Cashier'
-        const storeName = order.branch?.store?.brand || order.branch?.store?.name || ''
-        return (
-          customerName.toLowerCase().includes(query) ||
-          cashierName.toLowerCase().includes(query) ||
-          storeName.toLowerCase().includes(query)
-        )
-      })
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((order) => order.status === statusFilter)
-    }
-
-    // Store filter
-    if (storeFilter !== 'all') {
-      filtered = filtered.filter((order) => {
-        const storeId = order.branch?.store?.id || order.storeId
-        return storeId?.toString() === storeFilter
-      })
-    }
-
-    // Sort by date (newest first)
-    filtered.sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0)
-      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0)
-      return dateB - dateA
-    })
-
-    setFilteredOrders(filtered)
   }
 
   const formatCurrency = (amount) => {
@@ -336,6 +262,7 @@ const SuperAdminSalesPage = () => {
       PENDING: 'Pending',
       COMPLETED: 'Completed',
       CANCELLED: 'Cancelled',
+      PARTIALLY_REFUNDED: 'Partially Refunded',
       REFUNDED: 'Refunded',
     }
     return statusMap[status] || status
@@ -346,37 +273,101 @@ const SuperAdminSalesPage = () => {
       PENDING: 'bg-yellow-100 text-yellow-800',
       COMPLETED: 'bg-green-100 text-green-800',
       CANCELLED: 'bg-red-100 text-red-800',
+      PARTIALLY_REFUNDED: 'bg-orange-100 text-orange-800',
       REFUNDED: 'bg-orange-100 text-orange-800',
     }
     return colorMap[status] || 'bg-gray-100 text-gray-800'
   }
 
-  const handleExport = () => {
-    const headers = ['Date', 'Store', 'Customer', 'Cashier', 'Amount', 'Payment Method', 'Status']
-    const rows = filteredOrders.map(order => [
-      formatDate(order.createdAt),
-      order.branch?.store?.brand || order.branch?.store?.name || 'Unknown',
-      order.customer?.name || order.customer?.fullName || 'Unknown',
-      order.cashier?.fullName || order.cashier?.email || 'Unknown',
-      order.totalAmount || 0,
-      getPaymentMethodLabel(order.paymentType),
-      getStatusLabel(order.status),
-    ])
+  const getOrderStore = (order) => stores.find((store) => store.id === (order.branch?.storeId || order.storeId))
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n')
+  const fetchAllFilteredSales = async () => {
+    const first = await orderAPI.getSystemPaged({
+      page: 0,
+      size: 100,
+      sortBy,
+      direction,
+      search: debouncedSearch,
+      status: statusFilter === 'all' ? '' : statusFilter,
+      storeId: storeFilter === 'all' ? '' : storeFilter,
+    })
+    const rows = [...(first?.content || [])]
+    for (let exportPage = 1; exportPage < (first?.totalPages || 0); exportPage += 1) {
+      const result = await orderAPI.getSystemPaged({
+        page: exportPage,
+        size: 100,
+        sortBy,
+        direction,
+        search: debouncedSearch,
+        status: statusFilter === 'all' ? '' : statusFilter,
+        storeId: storeFilter === 'all' ? '' : storeFilter,
+      })
+      rows.push(...(result?.content || []))
+    }
+    return rows
+  }
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `super-admin-sales-export-${format(new Date(), 'yyyy-MM-dd')}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExport = async () => {
+    try {
+      setExporting(true)
+      const orders = await fetchAllFilteredSales()
+      if (orders.length === 0) {
+        toast.error('No sales available to export')
+        return
+      }
+      if (exportFormat === 'pdf') {
+        exportSuperAdminSalesPDF(orders, stores)
+        toast.success(`PDF exported successfully (${orders.length} sales)`)
+        return
+      }
+      if (exportFormat === 'json') {
+        const blob = new Blob([JSON.stringify(orders, null, 2)], { type: 'application/json;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `super-admin-sales-export-${format(new Date(), 'yyyy-MM-dd')}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        toast.success(`JSON exported successfully (${orders.length} sales)`)
+        return
+      }
+
+      const headers = ['Date', 'Store', 'Customer', 'Cashier', 'Amount', 'Payment Method', 'Status']
+      const rows = orders.map(order => [
+        formatDate(order.createdAt),
+        getOrderStore(order)?.brand || getOrderStore(order)?.name || 'Unknown',
+        order.customer?.name || order.customer?.fullName || 'Unknown',
+        order.cashier?.fullName || order.cashier?.email || 'Unknown',
+        order.totalAmount || 0,
+        getPaymentMethodLabel(order.paymentType),
+        getStatusLabel(order.status),
+      ])
+
+      const escapeCsvCell = (value) => `"${String(value).replaceAll('"', '""')}"`
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(escapeCsvCell).join(','))
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `super-admin-sales-export-${format(new Date(), 'yyyy-MM-dd')}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      toast.success(`CSV exported successfully (${orders.length} sales)`)
+    } catch (error) {
+      console.error('Error exporting sales:', error)
+      toast.error(error.message || 'Could not export sales')
+    } finally {
+      setExporting(false)
+    }
   }
 
   if (loading) {
@@ -394,10 +385,17 @@ const SuperAdminSalesPage = () => {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">System-Wide Sales</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">View sales across all stores</p>
         </div>
-        <Button variant="outline" onClick={handleExport}>
-          <Download className="size-4 mr-2" />
-          Export
-        </Button>
+        <div className="flex items-center gap-2">
+          <select value={exportFormat} onChange={(event) => setExportFormat(event.target.value)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/15 dark:bg-[#111c35] dark:text-white">
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+            <option value="pdf">PDF</option>
+          </select>
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+            {exporting ? <RefreshCw className="size-4 mr-2 animate-spin" /> : <Download className="size-4 mr-2" />}
+            {exporting ? 'Exporting…' : `Export ${exportFormat.toUpperCase()}`}
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -509,16 +507,16 @@ const SuperAdminSalesPage = () => {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Top Stores by Sales</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">A compact comparison of the highest-performing stores</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={storeSalesData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
+            <ResponsiveContainer width="100%" height={Math.max(170, storeSalesData.length * 48)}>
+              <BarChart data={storeSalesData} layout="vertical" margin={{ top: 4, right: 28, left: 12, bottom: 4 }} barCategoryGap="28%">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.35} />
+                <XAxis type="number" tickFormatter={(value) => `₹${new Intl.NumberFormat('en-IN', { notation: 'compact' }).format(value)}`} />
+                <YAxis type="category" dataKey="name" width={130} tickLine={false} axisLine={false} />
                 <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="sales" fill="#8884d8" name="Sales" />
+                <Bar dataKey="sales" fill="#6366f1" name="Sales" maxBarSize={30} radius={[0, 8, 8, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -599,18 +597,33 @@ const SuperAdminSalesPage = () => {
                   className="pl-10"
                 />
               </div>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full rounded-md border bg-white px-3 py-2 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-[140px]">
+              <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }} className="w-full rounded-md border bg-white px-3 py-2 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-[140px]">
                 <option value="all">All Status</option><option value="PENDING">Pending</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option><option value="REFUNDED">Refunded</option>
               </select>
-              <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="w-full rounded-md border bg-white px-3 py-2 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-[140px]">
+              <select value={storeFilter} onChange={(e) => { setStoreFilter(e.target.value); setPage(0) }} className="w-full rounded-md border bg-white px-3 py-2 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-[140px]">
                 <option value="all">All Stores</option>
                 {stores.map((store) => <option key={store.id} value={store.id.toString()}>{store.brand || store.name}</option>)}
+              </select>
+              <select value={`${sortBy}:${direction}`} onChange={(e) => { const [field, order] = e.target.value.split(':'); setSortBy(field); setDirection(order); setPage(0) }} className="w-full rounded-md border bg-white px-3 py-2 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-[160px]">
+                <option value="createdAt:desc">Newest first</option>
+                <option value="createdAt:asc">Oldest first</option>
+                <option value="totalAmount:desc">Amount high–low</option>
+                <option value="totalAmount:asc">Amount low–high</option>
+              </select>
+              <select value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0) }} className="w-full rounded-md border bg-white px-3 py-2 dark:border-white/15 dark:bg-[#111c35] dark:text-white sm:w-[130px]">
+                <option value="10">10 per page</option>
+                <option value="25">25 per page</option>
+                <option value="50">50 per page</option>
               </select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          {filteredOrders.length === 0 ? (
+          {tableLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="size-8 animate-spin text-blue-600" />
+            </div>
+          ) : pagedOrders.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <ShoppingCart className="size-12 mx-auto mb-2 opacity-50" />
               <p>No sales found</p>
@@ -630,11 +643,11 @@ const SuperAdminSalesPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => (
+                  {pagedOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell>{formatDate(order.createdAt)}</TableCell>
                       <TableCell>
-                        {order.branch?.store?.brand || order.branch?.store?.name || 'Unknown'}
+                        {getOrderStore(order)?.brand || getOrderStore(order)?.name || 'Unknown'}
                       </TableCell>
                       <TableCell className="font-medium">
                         {order.customer?.name || order.customer?.fullName || 'Unknown Customer'}
@@ -659,6 +672,17 @@ const SuperAdminSalesPage = () => {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          {!tableLoading && totalPages > 0 && (
+            <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalElements)} of {totalElements} sales · Page {page + 1} of {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="disabled:cursor-not-allowed disabled:opacity-50">Previous</Button>
+                <Button disabled={page + 1 >= totalPages} onClick={() => setPage((current) => current + 1)} className="disabled:cursor-not-allowed disabled:opacity-50">Next</Button>
+              </div>
             </div>
           )}
         </CardContent>

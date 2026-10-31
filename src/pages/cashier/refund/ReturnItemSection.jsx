@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,37 +9,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Check } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-const ReturnItemSection = ({ order, onProcessRefund, branchId, cashierId, shiftReportId }) => {
-  const [returnItems, setReturnItems] = useState([])
+const ReturnItemSection = ({ order, onProcessRefund, shiftReportId }) => {
+  const [returnItems, setReturnItems] = useState(() => (order?.orderItems || []).map(item => ({
+    orderItemId: item.id,
+    productId: item.product?.id,
+    productName: item.product?.name || 'N/A',
+    orderedQty: item.quantity || 0,
+    alreadyRefundedQty: order.refundedByOrderItem?.[item.id] || 0,
+    refundableQty: Math.max(0, (item.quantity || 0) - (order.refundedByOrderItem?.[item.id] || 0)),
+    returnQty: 0,
+    price: item.price || 0,
+    isReturning: false,
+  })))
   const [returnReason, setReturnReason] = useState('')
-  const [refundMethod, setRefundMethod] = useState('')
-
-  useEffect(() => {
-    if (order?.orderItems) {
-      // Initialize return items with default values
-      const items = order.orderItems.map(item => ({
-        orderItemId: item.id,
-        productId: item.product?.id,
-        productName: item.product?.name || 'N/A',
-        orderedQty: item.quantity || 0,
-        returnQty: 0,
-        price: item.price || 0,
-        isReturning: false,
-      }))
-      setReturnItems(items)
-    }
-    
-    // Set default refund method to original payment method
-    if (order?.paymentType) {
-      setRefundMethod(order.paymentType)
-    }
-  }, [order])
+  const [refundMethod, setRefundMethod] = useState(order?.paymentType || '')
+  const [processing, setProcessing] = useState(false)
 
   const handleReturnQtyChange = (index, value) => {
-    const qty = Math.max(0, Math.min(value, returnItems[index].orderedQty))
+    const qty = Math.max(0, Math.min(value, returnItems[index].refundableQty))
     const updated = [...returnItems]
     updated[index].returnQty = qty
     updated[index].isReturning = qty > 0
@@ -53,7 +43,7 @@ const ReturnItemSection = ({ order, onProcessRefund, branchId, cashierId, shiftR
       updated[index].returnQty = 0
     } else {
       updated[index].isReturning = true
-      updated[index].returnQty = updated[index].orderedQty
+      updated[index].returnQty = updated[index].refundableQty
     }
     setReturnItems(updated)
   }
@@ -84,14 +74,18 @@ const ReturnItemSection = ({ order, onProcessRefund, branchId, cashierId, shiftR
     const refundData = {
       orderId: order.id,
       reason: returnReason,
-      amount: totalRefund,
       paymentType: refundMethod,
       shiftReportId: shiftReportId || null,
-      branch: branchId ? { id: branchId } : null,
-      cashier: cashierId ? { id: cashierId } : null,
+      items: returnItems
+        .filter(item => item.isReturning && item.returnQty > 0)
+        .map(item => ({
+          orderItemId: item.orderItemId,
+          quantity: item.returnQty,
+        })),
     }
 
-    onProcessRefund(refundData, returnItems.filter(item => item.isReturning && item.returnQty > 0))
+    setProcessing(true)
+    Promise.resolve(onProcessRefund(refundData)).finally(() => setProcessing(false))
   }
 
   const returnReasons = [
@@ -116,6 +110,39 @@ const ReturnItemSection = ({ order, onProcessRefund, branchId, cashierId, shiftR
 
   return (
     <div className="space-y-4">
+      {order.refundHistory?.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="font-semibold mb-3">Previous Refunds</h3>
+            <div className="space-y-3">
+              {order.refundHistory.map(refund => (
+                <div key={refund.id} className="rounded-lg border p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">Refund #{refund.id}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {refund.createdAt ? new Date(refund.createdAt).toLocaleString() : 'Date unavailable'}
+                        {' · '}{refund.paymentType || 'Unknown method'}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-destructive">-₹{Number(refund.amount || 0).toFixed(2)}</p>
+                  </div>
+                  <p className="mt-2 text-sm">{refund.reason || 'No reason provided'}</p>
+                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    {(refund.items || []).map(item => (
+                      <div key={item.id || item.orderItemId} className="flex justify-between gap-3">
+                        <span>{item.productName || `Item #${item.orderItemId}`} × {item.quantity}</span>
+                        <span>₹{Number(item.amount || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Return Items Table */}
       <Card>
         <CardContent className="p-4">
@@ -125,7 +152,7 @@ const ReturnItemSection = ({ order, onProcessRefund, branchId, cashierId, shiftR
               <thead>
                 <tr className="border-b">
                   <th className="text-left p-2 text-sm font-medium">Item</th>
-                  <th className="text-center p-2 text-sm font-medium">Ordered</th>
+                  <th className="text-center p-2 text-sm font-medium">Available</th>
                   <th className="text-center p-2 text-sm font-medium">Return Qty</th>
                   <th className="text-right p-2 text-sm font-medium">Refund Amount</th>
                   <th className="text-center p-2 text-sm font-medium">Return?</th>
@@ -137,12 +164,17 @@ const ReturnItemSection = ({ order, onProcessRefund, branchId, cashierId, shiftR
                     <td className="p-2">
                       <p className="text-sm font-medium truncate max-w-[200px]">{item.productName}</p>
                     </td>
-                    <td className="p-2 text-center text-sm">{item.orderedQty}</td>
+                    <td className="p-2 text-center text-sm">
+                      {item.refundableQty}
+                      {item.alreadyRefundedQty > 0 && (
+                        <span className="block text-xs text-muted-foreground">{item.alreadyRefundedQty} refunded</span>
+                      )}
+                    </td>
                     <td className="p-2">
                       <Input
                         type="number"
                         min="0"
-                        max={item.orderedQty}
+                        max={item.refundableQty}
                         value={item.returnQty}
                         onChange={(e) => handleReturnQtyChange(index, parseInt(e.target.value) || 0)}
                         className="w-20 mx-auto text-center"
@@ -159,6 +191,7 @@ const ReturnItemSection = ({ order, onProcessRefund, branchId, cashierId, shiftR
                         variant={item.isReturning ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => toggleReturnItem(index)}
+                        disabled={item.refundableQty === 0}
                       >
                         {item.isReturning ? (
                           <>
@@ -229,13 +262,14 @@ const ReturnItemSection = ({ order, onProcessRefund, branchId, cashierId, shiftR
         className="w-full"
         size="lg"
         onClick={handleProcessRefund}
-        disabled={!hasReturnItems || !returnReason || !refundMethod}
+        disabled={processing || !hasReturnItems || !returnReason || !refundMethod}
       >
-        Process Refund
+        {processing ? (
+          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing refund...</>
+        ) : 'Process Refund'}
       </Button>
     </div>
   )
 }
 
 export default ReturnItemSection
-

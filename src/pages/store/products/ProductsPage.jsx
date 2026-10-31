@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Plus, RefreshCw, Eye, Edit, Trash2, Image as ImageIcon, Upload, X } from 'lucide-react'
+import { Search, Plus, RefreshCw, Eye, Edit, Trash2, Image as ImageIcon, Upload, X, Package, Tag, Boxes, Barcode } from 'lucide-react'
 import { productAPI, userAPI, storeAPI, categoryAPI } from '@/services/api'
 import {
   Dialog,
@@ -25,14 +25,29 @@ import { uploadToCloudinary } from '@/utils/cloudinary'
 import { toast } from 'sonner'
 import { useConfirm } from '@/contexts/ConfirmContext'
 import NoStoreBanner from '@/components/NoStoreBanner'
+import { useSearchParams } from 'react-router-dom'
+
+const truncateWords = (text, limit = 10) => {
+  if (!text) return 'No description'
+
+  const words = text.trim().split(/\s+/)
+  return words.length > limit ? `${words.slice(0, limit).join(' ')}...` : text
+}
 
 const ProductsPage = () => {
   const confirm = useConfirm()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [storeId, setStoreId] = useState(null)
+  const [page, setPage] = useState(() => Math.max(Number(searchParams.get('page') || 0), 0))
+  const [pageSize, setPageSize] = useState(() => Number(searchParams.get('size') || 10))
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || 'createdAt')
+  const [direction, setDirection] = useState(() => searchParams.get('direction') || 'desc')
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState(null)
@@ -70,37 +85,30 @@ const ProductsPage = () => {
   const [editImagePreview, setEditImagePreview] = useState(null)
   const [editImageFile, setEditImageFile] = useState(null)
 
-  // Common categories
-  const commonCategories = [
-    'Electronics',
-    'Clothing',
-    'Food & Beverages',
-    'Home & Kitchen',
-    'Beauty & Personal Care',
-    'Sports & Outdoors',
-    'Books',
-    'Toys & Games',
-    'Automotive',
-    'Health & Wellness',
-    'Office Supplies',
-    'Pet Supplies',
-  ]
-
   useEffect(() => {
     fetchStoreId()
   }, [])
 
   useEffect(() => {
-    if (storeId) {
-      fetchProducts()
-      fetchCategories()
-    }
+    if (storeId) fetchCategories()
   }, [storeId])
 
   useEffect(() => {
-    filterProducts()
+    if (storeId) fetchProducts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, products])
+  }, [storeId, page, pageSize, sortBy, direction, searchQuery])
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    next.set('page', String(page))
+    next.set('size', String(pageSize))
+    next.set('sortBy', sortBy)
+    next.set('direction', direction)
+    if (searchQuery.trim()) next.set('search', searchQuery.trim())
+    else next.delete('search')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, sortBy, direction, searchQuery])
 
   const fetchStoreId = async () => {
     try {
@@ -126,8 +134,12 @@ const ProductsPage = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true)
-      const data = await productAPI.getByStoreId(storeId)
-      setProducts(data || [])
+      const data = await productAPI.getByStoreIdPaged(storeId, page, pageSize, sortBy, direction, searchQuery)
+      const rows = data?.content || []
+      setProducts(rows)
+      setFilteredProducts(rows)
+      setTotalPages(data?.totalPages || 0)
+      setTotalElements(data?.totalElements || 0)
     } catch (error) {
       console.error('Error fetching products:', error)
       setProducts([])
@@ -146,26 +158,10 @@ const ProductsPage = () => {
     }
   }
 
-  const filterProducts = () => {
-    if (!searchQuery.trim()) {
-      setFilteredProducts(products)
-      return
-    }
-
-    const query = searchQuery.toLowerCase()
-    const filtered = products.filter((product) =>
-      product.name?.toLowerCase().includes(query) ||
-      product.sku?.toLowerCase().includes(query) ||
-      product.brand?.toLowerCase().includes(query) ||
-      product.category?.name?.toLowerCase().includes(query) ||
-      product.description?.toLowerCase().includes(query)
-    )
-    setFilteredProducts(filtered)
-  }
-
   const handleSearch = (e) => {
     e.preventDefault()
-    filterProducts()
+    setPage(0)
+    fetchProducts()
   }
 
   const handleOpenAddDialog = () => {
@@ -255,18 +251,6 @@ const ProductsPage = () => {
       const existingCategory = categories.find(c => c.id.toString() === editProduct.categoryId || c.name === editProduct.categoryId)
       if (existingCategory) {
         finalCategoryId = existingCategory.id
-      } else if (commonCategories.includes(editProduct.categoryId)) {
-        try {
-          const newCategory = await categoryAPI.create({
-            name: editProduct.categoryId,
-            storeId: storeId,
-          })
-          finalCategoryId = newCategory.id
-        } catch (error) {
-          console.error('Error creating category:', error)
-          toast.error('Failed to create category. Please try again.')
-          return
-        }
       } else {
         finalCategoryId = parseInt(editProduct.categoryId)
       }
@@ -452,19 +436,6 @@ const ProductsPage = () => {
       const existingCategory = categories.find(c => c.id.toString() === newProduct.categoryId || c.name === newProduct.categoryId)
       if (existingCategory) {
         finalCategoryId = existingCategory.id
-      } else if (commonCategories.includes(newProduct.categoryId)) {
-        // Create new category for common category name
-        try {
-          const newCategory = await categoryAPI.create({
-            name: newProduct.categoryId,
-            storeId: storeId,
-          })
-          finalCategoryId = newCategory.id
-        } catch (error) {
-          console.error('Error creating category:', error)
-          toast.error(error.message || 'Failed to create category. Please try again.')
-          return
-        }
       } else {
         finalCategoryId = parseInt(newProduct.categoryId)
       }
@@ -557,7 +528,7 @@ const ProductsPage = () => {
                 type="text"
                 placeholder="Search products..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(0) }}
                 className="pl-10"
               />
             </div>
@@ -569,7 +540,30 @@ const ProductsPage = () => {
       {/* Products Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Products ({filteredProducts.length})</CardTitle>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Products ({totalElements})</CardTitle>
+            <div className="flex flex-wrap gap-2">
+              <Select value={`${sortBy}:${direction}`} onValueChange={(value) => { const [field, order] = value.split(':'); setSortBy(field); setDirection(order); setPage(0) }}>
+                <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt:desc">Newest first</SelectItem>
+                  <SelectItem value="createdAt:asc">Oldest first</SelectItem>
+                  <SelectItem value="name:asc">Name A–Z</SelectItem>
+                  <SelectItem value="name:desc">Name Z–A</SelectItem>
+                  <SelectItem value="sellingPrice:asc">Price low–high</SelectItem>
+                  <SelectItem value="sellingPrice:desc">Price high–low</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(0) }}>
+                <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="25">25 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -584,17 +578,17 @@ const ProductsPage = () => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="w-full">
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">ID</TableHead>
-                    <TableHead className="w-24">Image</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-14">ID</TableHead>
+                    <TableHead className="w-20">Image</TableHead>
+                    <TableHead className="w-[38%]">Product</TableHead>
+                    <TableHead className="w-[18%]">Category</TableHead>
+                    <TableHead className="w-28 text-right">Price</TableHead>
+                    <TableHead className="w-20 text-right">Stock</TableHead>
+                    <TableHead className="w-32 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -613,11 +607,11 @@ const ProductsPage = () => {
                           />
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-white">{product.name || 'N/A'}</p>
-                          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
-                            {product.description || 'No description'}
+                      <TableCell className="min-w-0 whitespace-normal">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-900 dark:text-white">{product.name || 'N/A'}</p>
+                          <p className="truncate text-sm text-slate-500 dark:text-slate-400" title={product.description || ''}>
+                            {truncateWords(product.description)}
                           </p>
                         </div>
                       </TableCell>
@@ -666,6 +660,15 @@ const ProductsPage = () => {
                   ))}
                 </TableBody>
               </Table>
+              {totalPages > 0 && (
+                <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                  <span>Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalElements)} of {totalElements} products · Page {page + 1} of {totalPages}</span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((value) => value - 1)}>Previous</Button>
+                    <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((value) => value + 1)}>Next</Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -673,50 +676,57 @@ const ProductsPage = () => {
 
       {/* View Product Dialog */}
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Product Details</DialogTitle>
-            <DialogDescription>View product information</DialogDescription>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto p-0">
+          <DialogHeader className="border-b border-slate-200 px-6 py-5 dark:border-white/10">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-blue-600/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
+                <Package className="size-5" />
+              </span>
+              Product Details
+            </DialogTitle>
+            <DialogDescription className="pl-11">Complete product information</DialogDescription>
           </DialogHeader>
           {selectedProduct && (
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="size-32 rounded-md overflow-hidden bg-slate-100 dark:bg-white/10 shrink-0">
+            <div className="space-y-6 p-6">
+              <div className="grid gap-6 sm:grid-cols-[180px_minmax(0,1fr)]">
+                <div className="aspect-square w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm dark:border-white/10 dark:bg-white/10">
                   <img
                     src={getProductImage(selectedProduct)}
                     alt={selectedProduct.name}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">{selectedProduct.name}</h3>
-                  <p className="text-slate-500 dark:text-slate-400 mt-1">{selectedProduct.description}</p>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 dark:text-slate-400">Price:</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">₹{selectedProduct.sellingPrice?.toFixed(2) || selectedProduct.price?.toFixed(2) || '0.00'}</span>
-                    </div>
+                <div className="min-w-0">
+                  <span className="inline-flex rounded-full bg-blue-600/10 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                    {selectedProduct.category?.name || 'Uncategorized'}
+                  </span>
+                  <h3 className="mt-3 text-2xl font-bold leading-tight text-slate-900 dark:text-white">{selectedProduct.name}</h3>
+                  <div className="mt-4 flex flex-wrap items-end gap-3">
+                    <span className="text-3xl font-black text-slate-900 dark:text-white">₹{selectedProduct.sellingPrice?.toFixed(2) || selectedProduct.price?.toFixed(2) || '0.00'}</span>
                     {selectedProduct.mrp && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">MRP:</span>
-                        <span className="line-through text-slate-500 dark:text-slate-400">₹{selectedProduct.mrp.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 dark:text-slate-400">Category:</span>
-                      <span className="text-slate-900 dark:text-white">{selectedProduct.category?.name || 'Uncategorized'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 dark:text-slate-400">Stock:</span>
-                      <span className="text-slate-900 dark:text-white">{selectedProduct.quantity || selectedProduct.stockQuantity || 0}</span>
-                    </div>
-                    {selectedProduct.sku && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-500 dark:text-slate-400">SKU:</span>
-                        <span className="text-slate-900 dark:text-white">{selectedProduct.sku}</span>
-                      </div>
+                      <span className="pb-1 text-base text-slate-400 line-through">₹{selectedProduct.mrp.toFixed(2)}</span>
                     )}
                   </div>
+                  <div className="mt-5 rounded-xl bg-slate-50 p-4 dark:bg-white/[0.04]">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Description</p>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-300">
+                      {selectedProduct.description || 'No description available.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"><Boxes className="size-4" /> Stock</div>
+                  <p className="mt-2 text-lg font-bold text-slate-900 dark:text-white">{selectedProduct.quantity || selectedProduct.stockQuantity || 0} units</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"><Tag className="size-4" /> Brand</div>
+                  <p className="mt-2 truncate text-lg font-bold text-slate-900 dark:text-white">{selectedProduct.brand || 'Not specified'}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"><Barcode className="size-4" /> SKU</div>
+                  <p className="mt-2 break-all text-lg font-bold text-slate-900 dark:text-white">{selectedProduct.sku || 'Not specified'}</p>
                 </div>
               </div>
             </div>
@@ -780,18 +790,6 @@ const ProductsPage = () => {
                         {category.name}
                       </SelectItem>
                     ))}
-                    {/* Common categories */}
-                    {commonCategories.map((catName) => {
-                      const existingCat = categories.find(c => c.name.toLowerCase() === catName.toLowerCase())
-                      if (!existingCat) {
-                        return (
-                          <SelectItem key={catName} value={catName}>
-                            {catName}
-                          </SelectItem>
-                        )
-                      }
-                      return null
-                    })}
                     {/* Other option */}
                     <SelectItem value="other">Other (Custom)</SelectItem>
                   </SelectContent>
@@ -1037,11 +1035,6 @@ const ProductsPage = () => {
                         {cat.name}
                       </SelectItem>
                     ))}
-                    {commonCategories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
                     <SelectItem value="other">Other (Custom)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1151,4 +1144,3 @@ const ProductsPage = () => {
 }
 
 export default ProductsPage
-

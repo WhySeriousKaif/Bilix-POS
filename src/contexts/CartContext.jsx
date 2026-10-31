@@ -21,7 +21,10 @@ export const CartProvider = ({ children }) => {
       const existingItem = prevItems.find(item => item.product.id === product.id);
       
       if (existingItem) {
-        // Update quantity if product already in cart
+        const availableStock = existingItem.product.quantity
+        if (availableStock !== undefined && availableStock !== null && existingItem.quantity >= availableStock) {
+          return prevItems
+        }
         return prevItems.map(item =>
           item.product.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
@@ -52,11 +55,14 @@ export const CartProvider = ({ children }) => {
       return;
     }
     
-    setCartItems((prevItems) =>
-      prevItems.map(item =>
-        item.id === itemId ? { ...item, quantity } : item
-      )
-    );
+    setCartItems((prevItems) => prevItems.map(item => {
+      if (item.id !== itemId) return item
+      const availableStock = item.product.quantity
+      const safeQuantity = availableStock !== undefined && availableStock !== null
+        ? Math.min(quantity, availableStock)
+        : quantity
+      return { ...item, quantity: safeQuantity }
+    }));
   }, [removeFromCart]);
 
   const clearCart = useCallback(() => {
@@ -99,4 +105,3 @@ export const CartProvider = ({ children }) => {
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
-

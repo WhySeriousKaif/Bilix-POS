@@ -95,8 +95,9 @@ const OrderTable = ({ orders, searchQuery, onSelectOrder, loading }) => {
                     variant="default"
                     size="sm"
                     onClick={() => onSelectOrder(order)}
+                    disabled={order.status === 'REFUNDED' || order.status === 'CANCELLED'}
                   >
-                    Select for Return
+                    {order.status === 'REFUNDED' ? 'Fully Refunded' : 'Select for Return'}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -109,4 +110,3 @@ const OrderTable = ({ orders, searchQuery, onSelectOrder, loading }) => {
 }
 
 export default OrderTable
-
