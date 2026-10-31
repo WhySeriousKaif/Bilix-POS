@@ -211,6 +211,7 @@ export const authAPI = {
 
 // Branch API
 export const branchAPI = {
+  getAll: () => apiCall('/branches'),
   getById: (id) => apiCall(`/branches/${id}`),
   getByStoreId: (storeId) => apiCall(`/branches/store/${storeId}`),
   update: (id, branchDto) => apiCall(`/branches/${id}`, {
@@ -331,6 +332,13 @@ export const refundAPI = {
   getById: (id) => apiCall(`/refunds/${id}`),
   getByCashier: (cashierId) => apiCall(`/refunds/cashier/${cashierId}`),
   getByBranch: (branchId) => apiCall(`/refunds/branch/${branchId}`),
+  // Kept compatible with branch pagination screens; the backend currently
+  // returns the branch collection, so paginate the result client-side.
+  getByBranchPaged: async (branchId, page = 0, size = 10) => {
+    const refunds = await apiCall(`/refunds/branch/${branchId}`)
+    const items = Array.isArray(refunds) ? refunds : []
+    return { content: items.slice(page * size, (page + 1) * size), totalElements: items.length, totalPages: Math.ceil(items.length / size) }
+  },
   getByShift: (shiftReportId) => apiCall(`/refunds/shift/${shiftReportId}`),
   getByOrder: (orderId) => apiCall(`/refunds/order/${orderId}`),
   create: (refundDto) => apiCall('/refunds', {
@@ -394,6 +402,11 @@ export const dashboardAPI = {
     const params = new URLSearchParams({ period });
     if (granularity) params.set('granularity', granularity);
     return apiCall(`/dashboard/store/${storeId}?${params.toString()}`);
+  },
+  getBranchDashboard: (branchId, { period = '7D', granularity = '' } = {}) => {
+    const params = new URLSearchParams({ period });
+    if (granularity) params.set('granularity', granularity);
+    return apiCall(`/dashboard/branch/${branchId}?${params.toString()}`);
   },
 };
 
