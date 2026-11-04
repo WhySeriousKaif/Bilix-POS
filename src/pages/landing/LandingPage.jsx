@@ -79,24 +79,23 @@ function SimpleBenefitsCarousel({ children }) {
   )
 }
 
-function PlatformPreviewItem({ item, reverse }) {
+function PlatformPreviewItem({ item }) {
   return (
-    <div className={`flex flex-col items-center gap-10 lg:gap-16 ${reverse ? 'lg:flex-row-reverse' : 'lg:flex-row'}`}>
-      <div className="w-full shrink-0 text-center lg:w-1/2 lg:text-left">
+    <div className="grid items-center gap-8 lg:grid-cols-[0.8fr_1.7fr]">
+      <div className="text-center lg:text-left">
         <span className="mb-4 inline-block rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
           {item.role}
         </span>
-        <h3 className="mb-3 text-2xl font-black leading-tight text-slate-900 dark:text-white sm:text-3xl">
-          {item.title}
-        </h3>
-        <p className="mx-auto max-w-md text-base leading-relaxed text-slate-600 dark:text-slate-400 lg:mx-0">
-          {item.description}
-        </p>
+        <h3 className="mb-3 text-2xl font-black leading-tight text-slate-900 dark:text-white sm:text-3xl">{item.title}</h3>
+        <p className="mx-auto max-w-md text-base leading-relaxed text-slate-600 dark:text-slate-400 lg:mx-0">{item.description}</p>
       </div>
-
-      <div className="w-full lg:w-1/2">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xl shadow-slate-900/10 dark:border-white/10 dark:shadow-black/40">
-          <img src={item.image} alt={item.title} className="block h-auto w-full" />
+      <div className="group relative overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-[#0b1324] p-2 shadow-[0_24px_70px_-24px_rgba(15,23,42,0.6)] dark:border-white/10">
+        <div className="mb-2 flex items-center gap-1.5 px-2">
+          <span className="size-2 rounded-full bg-rose-400/90" /><span className="size-2 rounded-full bg-amber-300/90" /><span className="size-2 rounded-full bg-emerald-400/90" />
+          <span className="ml-2 text-[10px] font-semibold tracking-wide text-slate-500">bilix workspace</span>
+        </div>
+        <div className="overflow-hidden rounded-xl bg-slate-900">
+          <img src={item.image} alt={item.title} className="block max-h-[600px] w-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.01]" />
         </div>
       </div>
     </div>
@@ -554,8 +553,14 @@ const LandingPage = () => {
             </p>
           </div>
 
-          <div className="space-y-20">
-            {[
+          {(() => {
+            const rolePreviews = [
+              {
+                image: '/SuperAdmin.png',
+                role: 'SUPER ADMIN',
+                title: 'Company-wide visibility and control',
+                description: 'Monitor stores, sales, refunds, subscriptions, and platform health from one secure command center.',
+              },
               {
                 image: '/cashierPage.png',
                 role: 'CASHIER',
@@ -574,10 +579,31 @@ const LandingPage = () => {
                 title: 'The full business, at a glance',
                 description: 'Every branch, every product, every employee — rolled up into one dashboard, so nothing needs a spreadsheet to explain it.',
               },
-            ].map((item, idx) => (
-              <PlatformPreviewItem key={item.role} item={item} reverse={idx % 2 === 1} />
-            ))}
-          </div>
+            ]
+            const [activeRole, setActiveRole] = React.useState(0)
+            const item = rolePreviews[activeRole]
+            return (
+              <div className="space-y-8">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" role="tablist" aria-label="Bilix platform roles">
+                  {rolePreviews.map((role, index) => (
+                    <button
+                      key={role.role}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeRole === index}
+                      onClick={() => setActiveRole(index)}
+                      className={`group rounded-2xl border p-4 text-left transition-all duration-300 ${activeRole === index ? 'border-blue-500 bg-blue-600 text-white shadow-xl shadow-blue-500/25' : 'border-slate-200 bg-white/80 text-slate-700 hover:-translate-y-1 hover:border-blue-300 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-200'}`}
+                    >
+                      <span className={`mb-3 block size-3 rounded-full ring-4 ${activeRole === index ? 'bg-white ring-white/20' : 'bg-blue-500 ring-blue-500/10'}`} />
+                      <span className="block text-xs font-black tracking-widest">{role.role}</span>
+                      <span className={`mt-1 block text-xs ${activeRole === index ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'}`}>Explore workspace</span>
+                    </button>
+                  ))}
+                </div>
+                <PlatformPreviewItem item={item} />
+              </div>
+            )
+          })()}
         </div>
       </section>
 

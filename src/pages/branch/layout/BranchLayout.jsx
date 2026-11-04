@@ -45,13 +45,12 @@ const menuItems = [
 
 const HeaderBrand = () => (
   <div className="flex items-center gap-2.5 shrink-0">
-    <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-slate-800 flex items-center justify-center shadow-md overflow-hidden border border-blue-500/30 shrink-0">
-      <img src="/bilix_logo.png" alt="Bilix" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none' }} />
-      <Building2 className="size-5 text-blue-400 hidden" />
+    <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center shadow-md overflow-hidden border border-blue-900/40 shrink-0">
+      <img src="/bilix_logo.png" alt="Bilix" className="w-full h-full object-cover" />
     </div>
     <div className="hidden sm:block leading-tight">
       <div className="text-base font-black tracking-tight text-slate-900 dark:text-white leading-tight">Bilix</div>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Branch Manager</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Branch Manager</div>
     </div>
   </div>
 )
@@ -166,115 +165,105 @@ const BranchLayout = ({ children }) => {
   return (
     <div className="h-screen w-screen flex flex-col bg-[#F8FAFE] dark:bg-[#0B1220] text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
       {/* Top Navigation Bar */}
-      <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-sm gap-4">
-        <div className="flex items-center gap-3">
+      <header className="h-16 shrink-0 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 flex items-center justify-between px-4 sm:px-6 z-10 gap-4">
+        <div className="flex items-center gap-2 min-w-0">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden h-9 w-9 text-slate-600 dark:text-slate-400"
+            className="lg:hidden shrink-0"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="size-5" />
           </Button>
           <HeaderBrand />
           {branchInfo && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-full text-xs font-semibold text-blue-700 dark:text-blue-400">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 border border-blue-200/60 dark:border-blue-500/30 rounded-full text-xs font-semibold text-blue-700 dark:text-blue-300">
               <Building2 className="size-3.5" />
               <span>{branchInfo.name}</span>
             </div>
           )}
         </div>
 
-        {/* Center Quick Search */}
-        <div className="hidden sm:flex items-center gap-2.5 border border-slate-200 dark:border-white/10 rounded-full px-3.5 py-1.5 bg-slate-50 dark:bg-white/5 w-64 max-w-[40%]">
-          <Search className="size-4 text-slate-400 shrink-0" />
-          <input
-            type="text"
-            placeholder="Search orders, inventory, staff..."
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && globalSearch.trim()) {
-                navigate(`/branch/orders?search=${encodeURIComponent(globalSearch.trim())}`)
-              }
-            }}
-            className="outline-none bg-transparent text-xs w-full text-slate-900 dark:text-white placeholder:text-slate-400"
-          />
-        </div>
-
-        {/* Right Actions */}
-        <div className="flex items-center gap-2">
-          {/* Notifications */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 relative text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
-                <Bell className="size-4" />
-                <span className="absolute top-1.5 right-1.5 size-2 bg-blue-600 rounded-full ring-2 ring-white dark:ring-slate-900" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl">
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">Branch Notifications</h4>
-                <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">Active</span>
-              </div>
-              <div className="p-3 space-y-2 text-xs">
-                <div className="p-2 rounded bg-slate-50 dark:bg-slate-800/50">
-                  <p className="font-medium text-slate-800 dark:text-slate-200">System Connected</p>
-                  <p className="text-slate-500 text-[11px]">Branch Manager session live with database sync.</p>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Dark Mode Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+        <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+          <div className="hidden sm:flex items-center gap-2.5 border border-slate-200 dark:border-white/10 rounded-full px-3.5 py-2 bg-slate-50 dark:bg-white/5 w-64 max-w-[40%]">
+            <Search className="size-4 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search orders, inventory, staff..."
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && globalSearch.trim()) {
+                  navigate(`/branch/orders?search=${encodeURIComponent(globalSearch.trim())}`)
+                  setGlobalSearch('')
+                }
+              }}
+              className="outline-none bg-transparent text-sm w-full text-slate-900 dark:text-white placeholder:text-slate-400"
+            />
+          </div>
+          <button
             onClick={toggleTheme}
             title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            className="p-2.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
-            {darkMode ? <Sun className="size-4 text-amber-400" /> : <Moon className="size-4 text-slate-600" />}
-          </Button>
-
-          {/* User Profile Popover */}
+            {darkMode ? <Sun className="size-5 text-amber-400" /> : <Moon className="size-5" />}
+          </button>
           <Popover>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer">
-                <div className="size-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow">
-                  {initial}
-                </div>
-                <div className="hidden sm:block text-left pr-1">
-                  <p className="text-xs font-bold leading-none">{displayName}</p>
-                  <p className="text-[10px] text-slate-500 font-semibold leading-none mt-0.5">Branch Manager</p>
-                </div>
+              <button className="relative p-2.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer">
+                <Bell className="size-5" />
+                <span className="absolute top-1.5 right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900">1</span>
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-56 p-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl">
-              <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                <p className="text-xs font-bold text-slate-900 dark:text-white">{displayName}</p>
-                <p className="text-[11px] text-slate-500 truncate">{currentUser?.email || 'manager@molla-pos.com'}</p>
+            <PopoverContent align="end" className="w-80 p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 font-semibold text-sm text-slate-900 dark:text-white">
+                Notifications
               </div>
-              <div className="pt-2 space-y-1">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-xs h-8 font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900"
-                  onClick={() => navigate('/branch/settings')}
-                >
-                  <Settings className="size-3.5 mr-2" />
-                  Branch Settings
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-xs h-8 font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="size-3.5 mr-2" />
-                  Sign Out
-                </Button>
+              <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+                System Connected
               </div>
             </PopoverContent>
           </Popover>
+          <div className="flex items-center gap-2.5 pl-2 ml-1 border-l border-slate-200 dark:border-white/10">
+            <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+              {initial}
+            </div>
+            <div className="hidden sm:block text-sm">
+              <div className="font-semibold text-slate-900 dark:text-white leading-tight">{displayName}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Branch Manager</div>
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-white/10">
+                  <ChevronRight className="size-4 rotate-90 text-slate-400" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-56 p-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10">
+                <div className="p-2 border-b border-slate-100 dark:border-white/10">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">{displayName}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{currentUser?.email || 'manager@molla-pos.com'}</p>
+                </div>
+                <div className="pt-2 space-y-1">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-xs h-8 font-semibold text-slate-600 dark:text-slate-300"
+                    onClick={() => navigate('/branch/settings')}
+                  >
+                    <Settings className="size-3.5 mr-2" />
+                    Branch Settings
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-xs h-8 font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="size-3.5 mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </header>
 
@@ -356,8 +345,8 @@ const BranchLayout = ({ children }) => {
         </Sheet>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto bg-[#F8FAFE] dark:bg-[#0B1220] p-4 sm:p-6 lg:p-8">
-          <div className="w-full space-y-6">
+        <main className="flex-1 overflow-y-auto bg-[#F8FAFE] dark:bg-[#111827]">
+          <div className="w-full space-y-6 p-4 sm:p-6 lg:p-8">
             {children}
           </div>
         </main>

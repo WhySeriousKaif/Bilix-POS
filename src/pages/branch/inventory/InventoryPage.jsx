@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,13 +33,14 @@ import {
   CheckCircle2,
   Plus,
   Edit,
-  ArrowUpDown,
   Tag,
   Boxes,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { inventoryAPI, productAPI, userAPI } from '@/services/api'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { PageHeader, TablePagination, SelectControl } from '@/components/ui/page'
 
 const InventoryPage = () => {
   const [inventory, setInventory] = useState([])
@@ -48,6 +49,9 @@ const InventoryPage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [branchId, setBranchId] = useState(null)
   const [storeId, setStoreId] = useState(null)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [sort, setSort] = useState('name')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
@@ -57,6 +61,20 @@ const InventoryPage = () => {
     productId: '',
     quantity: '',
   })
+
+  const getProductImage = (product) => {
+    if (product?.image) return product.image
+    if (product?.imageUrl) return product.imageUrl
+    const category = product?.category?.name?.toLowerCase() || 'product'
+    const imageMap = {
+      'shirt': 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200',
+      't-shirt': 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200',
+      'women_dress': 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=200',
+      'watch': 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200',
+      'shoes': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=200',
+    }
+    return imageMap[category] || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200'
+  }
 
   useEffect(() => {
     fetchBranchId()
@@ -76,7 +94,7 @@ const InventoryPage = () => {
 
   useEffect(() => {
     filterInventory()
-  }, [searchQuery, inventory])
+  }, [searchQuery, inventory, sort])
 
   const fetchProducts = async () => {
     try {
@@ -91,24 +109,23 @@ const InventoryPage = () => {
   const fetchBranchId = async () => {
     try {
       const profile = await userAPI.getProfile()
-      if (profile?.branchId) {
-        setBranchId(profile.branchId)
-      } else {
-        setBranchId(1)
-      }
+      if (!profile?.branchId) throw new Error('No branch is assigned to this account.')
+      setBranchId(profile.branchId)
       if (profile?.storeId) {
         setStoreId(profile.storeId)
       }
     } catch (error) {
       console.error('Error fetching branch ID:', error)
-      setBranchId(1)
+      toast.error(error.message || 'Could not identify your branch')
+      setLoading(false)
     }
   }
 
   const fetchInventory = async () => {
     try {
       setLoading(true)
-      const data = branchId ? await inventoryAPI.getByBranch(branchId).catch(() => []) : await inventoryAPI.getAll().catch(() => [])
+      if (!branchId) throw new Error('No branch is assigned to this account.')
+      const data = await inventoryAPI.getByBranch(branchId)
       setInventory(data || [])
     } catch (error) {
       console.error('Error fetching inventory:', error)
@@ -120,11 +137,6 @@ const InventoryPage = () => {
   }
 
   const filterInventory = () => {
-    if (!searchQuery.trim()) {
-      setFilteredInventory(inventory)
-      return
-    }
-
     const query = searchQuery.toLowerCase()
     const filtered = inventory.filter(item => {
       const productName = item.product?.name?.toLowerCase() || ''
@@ -137,6 +149,9 @@ const InventoryPage = () => {
         category.includes(query)
       )
     })
+    filtered.sort((a, b) => sort === 'stock-asc' ? Number(a.quantity || 0) - Number(b.quantity || 0)
+      : sort === 'stock-desc' ? Number(b.quantity || 0) - Number(a.quantity || 0)
+        : (a.product?.name || '').localeCompare(b.product?.name || ''))
     setFilteredInventory(filtered)
   }
 
@@ -165,7 +180,7 @@ const InventoryPage = () => {
       }
 
       await inventoryAPI.create({
-        branchId: branchId || 1,
+        branchId,
         productId: parseInt(newInventory.productId),
         quantity,
       })
@@ -215,21 +230,15 @@ const InventoryPage = () => {
     lowStock: inventory.filter(item => (item.quantity || 0) > 0 && (item.quantity || 0) < 10).length,
     outOfStock: inventory.filter(item => (item.quantity || 0) === 0).length,
   }
+  const pages = Math.ceil(filteredInventory.length / pageSize)
+  const visibleInventory = filteredInventory.slice(page * pageSize, (page + 1) * pageSize)
 
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Branch Inventory</h1>
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-              {inventory.length} Stock Units
-            </span>
-          </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Monitor branch stock levels, reorder alerts, and update product quantities.</p>
-        </div>
-        <div className="flex items-center gap-3">
+      <PageHeader title="Branch Inventory" badge={`${inventory.length} products`}
+        description="Monitor stock levels and update product quantities for this branch."
+        actions={<>
           <Button
             onClick={() => setIsAddDialogOpen(true)}
             size="default"
@@ -245,11 +254,10 @@ const InventoryPage = () => {
           >
             <RefreshCw className="size-4" /> Refresh
           </Button>
-        </div>
-      </div>
+        </>} />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
           <CardContent className="p-6 flex items-center justify-between">
             <div>
@@ -302,15 +310,20 @@ const InventoryPage = () => {
       {/* Search Bar */}
       <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
         <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-            <Input
-              type="text"
-              placeholder="Search product name, SKU or category..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-11 h-11 text-sm bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-            />
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Search product name, SKU or category..."
+                value={searchQuery}
+                onChange={(e) => { setPage(0); setSearchQuery(e.target.value) }}
+                className="pl-11 h-10 text-sm bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+              />
+            </div>
+            <SelectControl ariaLabel="Sort inventory" value={sort} onChange={(value) => { setPage(0); setSort(value) }}
+              options={[{ value: 'name', label: 'Product name' }, { value: 'stock-asc', label: 'Lowest stock' }, { value: 'stock-desc', label: 'Highest stock' }]}
+              className="w-full sm:w-48" />
           </div>
         </CardContent>
       </Card>
@@ -325,58 +338,74 @@ const InventoryPage = () => {
             </div>
           ) : filteredInventory.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-16 text-center">
-              <Package className="size-14 text-slate-300 dark:text-slate-700 mb-3" />
+              <ImageIcon className="size-14 text-slate-300 dark:text-slate-700 mb-3" />
               <h3 className="text-base font-bold text-slate-900 dark:text-white">No Inventory Found</h3>
               <p className="text-sm text-slate-500 mt-1 max-w-sm">No items found matching your search term.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50 dark:bg-slate-800/60">
-                  <TableRow className="border-slate-100 dark:border-slate-800">
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200">Product</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200">SKU</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200">Category</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200 text-right">Stock Quantity</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200 text-right">Price</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200">Status</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200 text-right">Action</TableHead>
+              <Table className="w-full">
+                <TableHeader className="bg-slate-50 dark:bg-white/5">
+                  <TableRow className="border-slate-200 dark:border-white/10">
+                    <TableHead className="py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Product</TableHead>
+                    <TableHead className="py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">SKU</TableHead>
+                    <TableHead className="py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Category</TableHead>
+                    <TableHead className="py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Stock</TableHead>
+                    <TableHead className="py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Price</TableHead>
+                    <TableHead className="py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</TableHead>
+                    <TableHead className="py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredInventory.map((item) => {
+                <TableBody className="divide-y divide-slate-100 dark:divide-white/5">
+                  {visibleInventory.map((item) => {
                     const stockStatus = getStockStatus(item.quantity || 0)
+                    const product = item.product
                     return (
-                      <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <TableCell className="py-4 font-bold text-sm text-slate-900 dark:text-white">
-                          {item.product?.name || 'Inventory Product'}
+                      <TableRow key={item.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                        <TableCell className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="size-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0">
+                              <img
+                                src={getProductImage(product)}
+                                alt={product?.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200'
+                                }}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">{product?.name || 'Inventory Product'}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{product?.description?.substring(0, 40) || ''}</p>
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell className="py-4 text-sm font-mono text-slate-500">{item.product?.sku || 'SKU-N/A'}</TableCell>
-                        <TableCell className="py-4 text-sm text-slate-600 dark:text-slate-300">
-                          <span className="inline-flex items-center gap-1.5">
-                            <Tag className="size-3.5 text-slate-400" />
-                            {item.product?.category?.name || 'General'}
+                        <TableCell className="py-3 text-sm font-mono text-slate-600 dark:text-slate-300">{product?.sku || 'SKU-N/A'}</TableCell>
+                        <TableCell className="py-3 text-sm text-slate-600 dark:text-slate-300">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-xs font-medium">
+                            <Tag className="size-3" />
+                            {product?.category?.name || 'General'}
                           </span>
                         </TableCell>
-                        <TableCell className="py-4 text-right text-sm font-black text-slate-900 dark:text-white">
+                        <TableCell className="py-3 text-right text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
                           {item.quantity || 0}
                         </TableCell>
-                        <TableCell className="py-4 text-right text-sm font-bold text-slate-900 dark:text-white">
-                          ₹{item.product?.sellingPrice?.toFixed(2) || '0.00'}
+                        <TableCell className="py-3 text-right text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
+                          ₹{product?.sellingPrice?.toFixed(2) || '0.00'}
                         </TableCell>
-                        <TableCell className="py-4">
-                          <span className={cn('px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide', stockStatus.className)}>
+                        <TableCell className="py-3">
+                          <span className={cn('px-2.5 py-1 rounded-full text-xs font-medium', stockStatus.className)}>
                             {stockStatus.label}
                           </span>
                         </TableCell>
-                        <TableCell className="py-4 text-right">
+                        <TableCell className="py-3 text-right">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleOpenEdit(item)}
-                            className="h-9 text-xs font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-500/10 gap-1.5 cursor-pointer"
+                            className="h-8 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white gap-1.5"
                           >
-                            <Edit className="size-4" /> Adjust Stock
+                            <Edit className="size-3.5" /> Adjust Stock
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -386,6 +415,8 @@ const InventoryPage = () => {
               </Table>
             </div>
           )}
+          <TablePagination page={page} pageSize={pageSize} total={filteredInventory.length} totalPages={pages}
+            unit="products" onPageChange={setPage} onPageSizeChange={(size) => { setPage(0); setPageSize(size) }} />
         </CardContent>
       </Card>
 
@@ -478,5 +509,3 @@ const InventoryPage = () => {
 }
 
 export default InventoryPage
-
-

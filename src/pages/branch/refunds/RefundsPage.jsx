@@ -1,453 +1,255 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import React, { useCallback, useEffect, useState } from 'react'
+import { Eye, FileSpreadsheet, RefreshCw, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Search,
-  Eye,
-  RefreshCw,
-  RotateCcw,
-  X,
-  DollarSign,
-  Plus,
-  Receipt,
-  FileText,
-} from 'lucide-react'
-import { refundAPI, orderAPI, userAPI } from '@/services/api'
+  EmptyState,
+  LoadingState,
+  MetricCard,
+  PageHeader,
+  Panel,
+  SearchField,
+  SelectControl,
+  TablePagination,
+  formatCurrency,
+  thClass,
+  tdClass,
+  trClass,
+} from '@/components/ui/page'
+import { refundAPI, userAPI } from '@/services/api'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 
-const RefundsPage = () => {
-  const [refunds, setRefunds] = useState([])
-  const [filteredRefunds, setFilteredRefunds] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedRefund, setSelectedRefund] = useState(null)
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [branchId, setBranchId] = useState(null)
-  const [page, setPage] = useState(0)
-  const pageSize = 10
+const dateOptions = [
+  { value: 'all', label: 'All time' },
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'Last 7 days' },
+  { value: 'month', label: 'This month' },
+]
+const paymentOptions = [
+  { value: 'all', label: 'All payments' },
+  { value: 'CASH', label: 'Cash' },
+  { value: 'CARD', label: 'Card' },
+  { value: 'UPI', label: 'UPI' },
+]
+const sortOptions = [
+  { value: 'createdAt:desc', label: 'Newest first' },
+  { value: 'createdAt:asc', label: 'Oldest first' },
+  { value: 'amount:desc', label: 'Highest amount' },
+  { value: 'amount:asc', label: 'Lowest amount' },
+]
+const when = (value) => (value ? format(new Date(value), 'MMM d, yyyy · h:mm a') : '—')
 
-  const [newRefund, setNewRefund] = useState({
-    orderId: '',
-    amount: '',
-    reason: '',
-    paymentType: 'CASH',
-  })
+export default function RefundsPage() {
+  const [branchId, setBranchId] = useState(null)
+  const [refunds, setRefunds] = useState([])
+  const [search, setSearch] = useState('')
+  const [period, setPeriod] = useState('all')
+  const [payment, setPayment] = useState('all')
+  const [sort, setSort] = useState('createdAt:desc')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [total, setTotal] = useState(0)
+  const [pages, setPages] = useState(0)
+  const [selected, setSelected] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [revision, setRevision] = useState(0)
 
   useEffect(() => {
-    fetchBranchId()
+    userAPI
+      .getProfile()
+      .then((profile) => {
+        if (!profile?.branchId) throw new Error('No branch is assigned to this account.')
+        setBranchId(profile.branchId)
+      })
+      .catch((err) => {
+        setError(err.message)
+        setLoading(false)
+      })
   }, [])
+
+  const fetchRefunds = useCallback(async () => {
+    if (!branchId) return
+    setLoading(true)
+    setError('')
+    try {
+      const [sortBy, direction] = sort.split(':')
+      const response = await refundAPI.getByBranchPaged(branchId, page, pageSize, sortBy, direction, {
+        search,
+        period,
+        payment,
+      })
+      setRefunds(response.content || [])
+      setTotal(response.totalElements || 0)
+      setPages(response.totalPages || 0)
+    } catch (err) {
+      setError(err.message || 'Failed to load refunds')
+    } finally {
+      setLoading(false)
+    }
+  }, [branchId, page, pageSize, sort, search, period, payment])
 
   useEffect(() => {
     if (branchId) {
       fetchRefunds()
     }
-  }, [branchId])
+  }, [branchId, page, pageSize, sort, search, period, payment, revision, fetchRefunds])
 
-  useEffect(() => {
-    filterRefunds()
-  }, [searchQuery, refunds])
+  const changeFilter = useCallback(
+    (setter) => (value) => {
+      setPage(0)
+      setter(value)
+    },
+    [],
+  )
 
-  useEffect(() => {
-    setPage(0)
-  }, [searchQuery])
-
-  const fetchBranchId = async () => {
+  const exportCsv = async () => {
+    if (!branchId) return
     try {
-      const profile = await userAPI.getProfile()
-      if (profile?.branchId) {
-        setBranchId(profile.branchId)
-      } else {
-        setBranchId(1)
-      }
-    } catch (error) {
-      console.error('Error fetching branch ID:', error)
-      setBranchId(1)
-    }
-  }
-
-  const formatDateTime = (dateTime) => {
-    if (!dateTime) return 'N/A'
-    return format(new Date(dateTime), 'MMM d, yyyy, hh:mm a')
-  }
-
-  const fetchRefunds = async () => {
-    try {
-      setLoading(true)
-      const data = branchId ? await refundAPI.getByBranch(branchId).catch(() => []) : await refundAPI.getAll().catch(() => [])
-      const sorted = (data || []).sort((a, b) => new Date(b.createdAt || b.refundDate || 0) - new Date(a.createdAt || a.refundDate || 0))
-      setRefunds(sorted)
-    } catch (error) {
-      console.error('Error fetching refunds:', error)
-      toast.error('Failed to load refunds')
-      setRefunds([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filterRefunds = () => {
-    if (!searchQuery.trim()) {
-      setFilteredRefunds(refunds)
-      return
-    }
-
-    const query = searchQuery.toLowerCase()
-    const filtered = refunds.filter(refund => {
-      const refundId = refund.id?.toString() || ''
-      const orderId = refund.orderId?.toString() || ''
-      const reason = refund.reason?.toLowerCase() || ''
-
-      return (
-        refundId.includes(query) ||
-        orderId.includes(query) ||
-        reason.includes(query)
+      const [sortBy, direction] = sort.split(':')
+      const first = await refundAPI.getByBranchPaged(branchId, 0, 100, sortBy, direction, { search, period, payment })
+      const rest = await Promise.all(
+        Array.from({ length: Math.max(0, (first.totalPages || 1) - 1) }, (_, index) =>
+          refundAPI.getByBranchPaged(branchId, index + 1, 100, sortBy, direction, { search, period, payment }),
+        ),
       )
-    })
-    setFilteredRefunds(filtered)
-  }
-
-  const handleViewRefund = async (refund) => {
-    try {
-      let order = null
-      if (refund.orderId) {
-        try {
-          order = await orderAPI.getById(refund.orderId)
-        } catch (err) {
-          console.error('Error fetching order:', err)
-        }
-      }
-      setSelectedRefund({ ...refund, order })
-      setIsViewDialogOpen(true)
-    } catch (error) {
-      console.error('Error fetching refund details:', error)
+      const rows = [...(first.content || []), ...rest.flatMap((item) => item.content || [])]
+      const csv = [
+        ['Refund ID', 'Order ID', 'Date', 'Reason', 'Payment', 'Amount'],
+        ...rows.map((r) => [r.id, r.orderId, r.createdAt || '', r.reason || '', r.paymentType || '', r.amount || 0]),
+      ]
+        .map((row) =>
+          row
+            .map((value) => {
+              if (value === null || value === undefined) return '""'
+              return `"${String(value).replaceAll('"', '""')}"`
+            })
+            .join(','),
+        )
+        .join('\r\n')
+      const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `branch-refunds-${format(new Date(), 'yyyy-MM-dd')}.csv`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      toast.success('Refunds exported')
+    } catch (err) {
+      toast.error(err.message || 'Could not export refunds.')
     }
   }
 
-  const handleCreateRefund = async () => {
-    try {
-      if (!newRefund.orderId) {
-        toast.error('Order ID is required')
-        return
-      }
-      if (!newRefund.amount || parseFloat(newRefund.amount) <= 0) {
-        toast.error('Valid refund amount is required')
-        return
-      }
-
-      await refundAPI.create({
-        orderId: parseInt(newRefund.orderId),
-        branchId: branchId || 1,
-        amount: parseFloat(newRefund.amount),
-        reason: newRefund.reason || 'Customer request',
-        paymentType: newRefund.paymentType,
-      })
-
-      setIsCreateDialogOpen(false)
-      setNewRefund({ orderId: '', amount: '', reason: '', paymentType: 'CASH' })
-      fetchRefunds()
-      toast.success('Refund processed successfully!')
-    } catch (error) {
-      console.error('Error creating refund:', error)
-      toast.error('Failed to process refund')
-    }
-  }
-
-  const totalRefundAmount = refunds.reduce((sum, r) => sum + (r.amount || 0), 0)
-  const totalPages = Math.max(1, Math.ceil(filteredRefunds.length / pageSize))
-  const visibleRefunds = filteredRefunds.slice(page * pageSize, (page + 1) * pageSize)
+  const totalRefundAmount = refunds.reduce((sum, item) => sum + Number(item.amount || 0), 0)
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Branch Refunds</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400">
-              {refunds.length} Refund Records
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">Audit, process, and track customer return & refund transactions.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            size="sm"
-            className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs gap-1.5 shadow-sm"
-          >
-            <Plus className="size-4" /> Process Refund
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchRefunds}
-            className="text-xs font-bold border-slate-200 dark:border-slate-700 gap-1.5"
-          >
-            <RefreshCw className="size-3.5" /> Refresh
-          </Button>
-        </div>
-      </div>
-
-      {/* Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Processed Refunds</p>
-              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{refunds.length}</div>
-            </div>
-            <div className="size-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-600">
-              <RotateCcw className="size-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Value Refunded</p>
-              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">₹{totalRefundAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-            </div>
-            <div className="size-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-600">
-              <DollarSign className="size-5" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search Bar */}
-      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-            <Input
-              type="text"
-              placeholder="Search refund ID, order ID, or reason..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 text-xs bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center p-12 space-y-2 flex-col">
-              <div className="size-8 rounded-full border-4 border-rose-600 border-t-transparent animate-spin" />
-              <p className="text-xs font-semibold text-slate-500">Loading branch refunds...</p>
-            </div>
-          ) : filteredRefunds.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <RotateCcw className="size-12 text-slate-300 dark:text-slate-700 mb-3" />
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">No Refunds Found</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm">No refund transactions match your query.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50 dark:bg-slate-800/50">
-                  <TableRow className="border-slate-100 dark:border-slate-800">
-                    <TableHead className="text-xs font-bold text-slate-700 dark:text-slate-300">Refund ID</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 dark:text-slate-300">Order ID</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 dark:text-slate-300">Date</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 dark:text-slate-300">Reason</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 dark:text-slate-300">Payment</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 dark:text-slate-300 text-right">Amount</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 dark:text-slate-300 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {visibleRefunds.map((refund) => (
-                    <TableRow key={refund.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <TableCell className="font-bold text-xs text-rose-600 dark:text-rose-400">#{refund.id}</TableCell>
-                      <TableCell className="font-bold text-xs text-blue-600 dark:text-blue-400">#{refund.orderId || 'N/A'}</TableCell>
-                      <TableCell className="text-xs text-slate-600 dark:text-slate-400">{formatDateTime(refund.createdAt || refund.refundDate)}</TableCell>
-                      <TableCell className="text-xs text-slate-700 dark:text-slate-300 max-w-xs truncate">{refund.reason || 'Customer request'}</TableCell>
-                      <TableCell>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          {refund.paymentType || 'CASH'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right text-xs font-black text-rose-600 dark:text-rose-400">
-                        ₹{refund.amount?.toFixed(2) || '0.00'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10"
-                          onClick={() => handleViewRefund(refund)}
-                          title="View Details"
-                        >
-                          <Eye className="size-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="flex items-center justify-between border-t border-slate-100 p-4 dark:border-slate-800">
-                <span className="text-xs font-medium text-slate-500">
-                  Showing {page * pageSize + 1}-{Math.min((page + 1) * pageSize, filteredRefunds.length)} of {filteredRefunds.length} refunds
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === 0}
-                    onClick={() => setPage(current => current - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <span className="flex items-center px-2 text-xs font-semibold text-slate-500">
-                    Page {page + 1} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page + 1 >= totalPages}
-                    onClick={() => setPage(current => current + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Process Refund Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-md bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black text-slate-900 dark:text-white">Process Order Refund</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">Issue a full or partial refund for a customer purchase.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2 text-xs">
-            <div className="space-y-1.5">
-              <label className="font-bold text-slate-700 dark:text-slate-300">Order ID *</label>
-              <Input
-                type="number"
-                placeholder="Target order number e.g. 102"
-                value={newRefund.orderId}
-                onChange={(e) => setNewRefund({ ...newRefund, orderId: e.target.value })}
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="font-bold text-slate-700 dark:text-slate-300">Refund Amount (₹) *</label>
-              <Input
-                type="number"
-                placeholder="Amount to refund"
-                value={newRefund.amount}
-                onChange={(e) => setNewRefund({ ...newRefund, amount: e.target.value })}
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="font-bold text-slate-700 dark:text-slate-300">Payment Method</label>
-              <Select
-                value={newRefund.paymentType}
-                onValueChange={(val) => setNewRefund({ ...newRefund, paymentType: val })}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CASH">Cash Return</SelectItem>
-                  <SelectItem value="CARD">Card Reversal</SelectItem>
-                  <SelectItem value="UPI">UPI Refund</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="font-bold text-slate-700 dark:text-slate-300">Reason for Refund</label>
-              <Input
-                placeholder="Defective product, return, cancellation..."
-                value={newRefund.reason}
-                onChange={(e) => setNewRefund({ ...newRefund, reason: e.target.value })}
-                className="h-9 text-xs"
-              />
-            </div>
-          </div>
-          <DialogFooter className="pt-2">
-            <Button variant="outline" size="sm" onClick={() => setIsCreateDialogOpen(false)} className="text-xs font-bold">
-              Cancel
+      <PageHeader
+        title="Branch Refunds"
+        badge={`${total} refunds`}
+        badgeTone="rose"
+        description="Review refunds processed for this branch."
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!total}>
+              <FileSpreadsheet className="size-4" /> Export CSV
             </Button>
-            <Button size="sm" onClick={handleCreateRefund} className="text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white">
-              Issue Refund
+            <Button variant="outline" size="sm" onClick={() => setRevision((n) => n + 1)}>
+              <RefreshCw className="size-4" /> Refresh
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Refund Details Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-md bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 p-6">
+          </>
+        }
+      />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <MetricCard label="Total processed refunds" value={total.toLocaleString('en-IN')} icon={RotateCcw} tone="rose" hint="All refunds for this branch" />
+        <MetricCard label="Refunded on this page" value={formatCurrency(totalRefundAmount)} icon={RotateCcw} tone="rose" hint="Sum of amounts in current page" />
+        <MetricCard label="Branch reports" value="View Reports" icon={RefreshCw} tone="slate" hint="See full refund audit trail" />
+      </div>
+      <Panel title="Refund history" subtitle="Branch records only" bodyClassName="p-0">
+        <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4 dark:border-white/10">
+          <SearchField className="min-w-52" value={search} onChange={changeFilter(setSearch)} placeholder="Refund #, order # or reason…" />
+          <SelectControl ariaLabel="Date range" value={period} onChange={changeFilter(setPeriod)} options={dateOptions} />
+          <SelectControl ariaLabel="Payment method" value={payment} onChange={changeFilter(setPayment)} options={paymentOptions} />
+          <SelectControl ariaLabel="Sort refunds" value={sort} onChange={changeFilter(setSort)} options={sortOptions} />
+        </div>
+        {error && <p role="alert" className="px-5 py-3 text-sm text-rose-500">{error}</p>}
+        {loading ? (
+          <LoadingState label="Loading refunds…" />
+        ) : refunds.length === 0 ? (
+          <EmptyState icon={RotateCcw} title="No refunds found" hint="Try a different date or payment filter." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead>
+                <tr>
+                  <th className={thClass()}>Refund</th>
+                  <th className={thClass()}>Order</th>
+                  <th className={thClass()}>Date</th>
+                  <th className={thClass()}>Reason</th>
+                  <th className={thClass()}>Payment</th>
+                  <th className={thClass('right')}>Amount</th>
+                  <th className={thClass('right')}>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {refunds.map((refund) => (
+                  <tr key={refund.id} className={trClass}>
+                    <td className={`${tdClass()} font-semibold text-blue-600 dark:text-blue-400`}>#{refund.id}</td>
+                    <td className={tdClass()}>#{refund.orderId}</td>
+                    <td className={tdClass()}>{when(refund.createdAt)}</td>
+                    <td className={`${tdClass()} max-w-[260px] truncate`}>{refund.reason || '—'}</td>
+                    <td className={tdClass()}>{refund.paymentType || '—'}</td>
+                    <td className={`${tdClass('right')} font-semibold tabular-nums text-rose-600 dark:text-rose-400`}>{formatCurrency(refund.amount)}</td>
+                    <td className={tdClass('right')}>
+                      <Button variant="ghost" size="icon" aria-label={`View refund ${refund.id}`} onClick={() => setSelected(refund)}>
+                        <Eye className="size-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!loading && refunds.length > 0 && (
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={pages}
+            unit="refunds"
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPage(0)
+              setPageSize(size)
+            }}
+          />
+        )}
+      </Panel>
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-black text-slate-900 dark:text-white">Refund Record #{selectedRefund?.id}</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              {selectedRefund ? formatDateTime(selectedRefund.createdAt || selectedRefund.refundDate) : 'Refund Details'}
-            </DialogDescription>
+            <DialogTitle>Refund #{selected?.id}</DialogTitle>
           </DialogHeader>
-
-          {selectedRefund && (
-            <div className="space-y-4 pt-2 text-xs">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Order Number:</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">#{selectedRefund.orderId}</span>
+          {selected && (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
+              {[
+                ['Order', `#${selected.orderId}`],
+                ['Date', when(selected.createdAt)],
+                ['Payment', selected.paymentType || '—'],
+                ['Cashier', selected.cashier?.fullName || '—'],
+                ['Amount', formatCurrency(selected.amount)],
+                ['Reason', selected.reason || '—'],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-xs text-slate-500 dark:text-slate-400">{label}</dt>
+                  <dd className="mt-1 font-medium text-slate-900 dark:text-white">{value}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Refund Amount:</span>
-                  <span className="font-black text-rose-600 text-sm">₹{selectedRefund.amount?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Payment Type:</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{selectedRefund.paymentType || 'CASH'}</span>
-                </div>
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-400 font-medium block">Reason:</span>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{selectedRefund.reason || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
+              ))}
+            </dl>
           )}
         </DialogContent>
       </Dialog>
     </div>
   )
 }
-
-export default RefundsPage
