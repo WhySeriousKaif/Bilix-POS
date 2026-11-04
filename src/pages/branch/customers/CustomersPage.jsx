@@ -1,339 +1,321 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { useEffect, useState } from 'react'
+import { Edit, Eye, Mail, Phone, RefreshCw, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  Search,
-  RefreshCw,
-  Users,
-  Plus,
-  Edit,
-  ShoppingCart,
-  Mail,
-  Phone,
-  UserCheck,
-  TrendingUp,
-} from 'lucide-react'
-import { customerAPI, orderAPI } from '@/services/api'
+  EmptyState,
+  LoadingState,
+  MetricCard,
+  PageHeader,
+  Panel,
+  SearchField,
+  TablePagination,
+  formatCurrency,
+  thClass,
+  tdClass,
+  trClass,
+} from '@/components/ui/page'
+import { customerAPI, userAPI } from '@/services/api'
 import { toast } from 'sonner'
 
-const CustomersPage = () => {
+export default function CustomersPage() {
+  const [branchId, setBranchId] = useState(null)
   const [customers, setCustomers] = useState([])
-  const [filteredCustomers, setFilteredCustomers] = useState([])
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [total, setTotal] = useState(0)
+  const [pages, setPages] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [newCustomer, setNewCustomer] = useState({
-    name: '',
-    email: '',
-    phone: '',
-  })
+  const [error, setError] = useState('')
+  const [revision, setRevision] = useState(0)
+  const [editingCustomer, setEditingCustomer] = useState(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [viewingCustomer, setViewingCustomer] = useState(null)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
 
   useEffect(() => {
-    fetchCustomers()
+    userAPI
+      .getProfile()
+      .then((profile) => {
+        if (!profile?.branchId) throw new Error('No branch is assigned to this account.')
+        setBranchId(profile.branchId)
+      })
+      .catch((err) => {
+        setError(err.message)
+        setLoading(false)
+      })
   }, [])
 
   useEffect(() => {
-    filterCustomers()
-  }, [searchQuery, customers])
-
-  const fetchCustomers = async () => {
-    try {
-      setLoading(true)
-      const data = await customerAPI.getAll().catch(() => [])
-      const customersWithOrders = await Promise.all(
-        (data || []).map(async (customer) => {
-          try {
-            const orders = await orderAPI.getByCustomerId(customer.id).catch(() => [])
-            return {
-              ...customer,
-              orderCount: orders?.length || 0,
-              totalSpent: orders?.reduce((sum, order) => sum + (order.totalAmount || 0), 0) || 0,
-            }
-          } catch (err) {
-            return {
-              ...customer,
-              orderCount: 0,
-              totalSpent: 0,
-            }
-          }
-        })
-      )
-      setCustomers(customersWithOrders)
-    } catch (error) {
-      console.error('Error fetching customers:', error)
-      toast.error('Failed to load customers')
-      setCustomers([])
-    } finally {
-      setLoading(false)
+    if (!branchId) return
+    let active = true
+    setLoading(true)
+    setError('')
+    customerAPI
+      .getByBranchPaged(branchId, page, pageSize, search)
+      .then((result) => {
+        if (!active) return
+        setCustomers(result.content || [])
+        setTotal(result.totalElements || 0)
+        setPages(result.totalPages || 0)
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Unable to load customers.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
     }
-  }
+  }, [branchId, page, pageSize, search, revision])
 
-  const filterCustomers = () => {
-    if (!searchQuery.trim()) {
-      setFilteredCustomers(customers)
+  const handleEditCustomer = async () => {
+    if (!editingCustomer?.name?.trim()) {
+      toast.error('Name is required')
       return
     }
-
-    const query = searchQuery.toLowerCase()
-    const filtered = customers.filter(customer => {
-      const name = customer.name?.toLowerCase() || customer.fullName?.toLowerCase() || ''
-      const email = customer.email?.toLowerCase() || ''
-      const phone = customer.phone?.toLowerCase() || ''
-
-      return (
-        name.includes(query) ||
-        email.includes(query) ||
-        phone.includes(query)
-      )
-    })
-    setFilteredCustomers(filtered)
-  }
-
-  const handleAddCustomer = async () => {
     try {
-      if (!newCustomer.name) {
-        toast.error('Customer name is required')
-        return
-      }
-      
-      await customerAPI.create(newCustomer)
-      setIsAddDialogOpen(false)
-      setNewCustomer({ name: '', email: '', phone: '' })
-      fetchCustomers()
-      toast.success('Customer added successfully!')
-    } catch (error) {
-      console.error('Error adding customer:', error)
-      toast.error('Failed to add customer')
+      setSavingEdit(true)
+      await customerAPI.update(editingCustomer.id, {
+        name: editingCustomer.name.trim(),
+        email: editingCustomer.email?.trim() || null,
+        phone: editingCustomer.phone?.trim() || null,
+      })
+      setIsEditDialogOpen(false)
+      setEditingCustomer(null)
+      setRevision((n) => n + 1)
+      toast.success('Customer details updated successfully')
+    } catch (err) {
+      toast.error(err.message || 'Error updating customer')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
   const summary = {
-    total: customers.length,
-    withOrders: customers.filter(c => c.orderCount > 0).length,
-    totalRevenue: customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0),
+    total,
+    withOrders: customers.filter((c) => (c.orderCount || 0) > 0).length,
+    revenue: customers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0),
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Branch Customers</h1>
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300">
-              {customers.length} Registered
-            </span>
-          </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Directory of clients, purchase histories, contact info, and total spend.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setIsAddDialogOpen(true)}
-            size="default"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm h-10 px-4 gap-2 shadow-sm cursor-pointer"
-          >
-            <Plus className="size-4" /> Add Customer
-          </Button>
-          <Button
-            variant="outline"
-            size="default"
-            onClick={fetchCustomers}
-            className="text-sm font-bold border-slate-200 dark:border-slate-700 h-10 px-4 gap-2 cursor-pointer"
-          >
+      <PageHeader
+        title="Branch Customers"
+        badge={`${total} customers`}
+        description="Customers who have purchased at this branch, with branch-only order totals."
+        actions={
+          <Button variant="outline" size="sm" onClick={() => setRevision((n) => n + 1)}>
             <RefreshCw className="size-4" /> Refresh
           </Button>
+        }
+      />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <MetricCard label="Total Customers" value={summary.total.toLocaleString('en-IN')} icon={Users} tone="blue" />
+        <MetricCard label="With Orders" value={summary.withOrders.toLocaleString('en-IN')} icon={Users} tone="emerald" hint="At least one order" />
+        <MetricCard label="Branch Revenue" value={formatCurrency(summary.revenue)} icon={Users} tone="violet" hint="From branch customers" />
+      </div>
+      <Panel title="Customer directory" subtitle="Purchases at this branch only" bodyClassName="p-0">
+        <div className="border-b border-slate-200 p-4 dark:border-white/10">
+          <SearchField
+            value={search}
+            onChange={(value) => {
+              setPage(0)
+              setSearch(value)
+            }}
+            placeholder="Search name, email or phone…"
+          />
         </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Customers</p>
-              <div className="text-3xl font-black text-slate-900 dark:text-white mt-1.5">{summary.total}</div>
-            </div>
-            <div className="size-12 rounded-xl bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center text-violet-600">
-              <Users className="size-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Repeat Buyers</p>
-              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1.5">{summary.withOrders}</div>
-            </div>
-            <div className="size-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-              <UserCheck className="size-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lifetime Customer Value</p>
-              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mt-1.5">₹{summary.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-            </div>
-            <div className="size-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600">
-              <TrendingUp className="size-6" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search Bar */}
-      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-            <Input
-              type="text"
-              placeholder="Search customer name, email or phone..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-11 h-11 text-sm bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center p-16 space-y-3 flex-col">
-              <div className="size-9 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
-              <p className="text-sm font-semibold text-slate-500">Loading branch customers...</p>
-            </div>
-          ) : filteredCustomers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-16 text-center">
-              <Users className="size-14 text-slate-300 dark:text-slate-700 mb-3" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">No Customers Found</h3>
-              <p className="text-sm text-slate-500 mt-1 max-w-sm">No customers match your search term.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50 dark:bg-slate-800/60">
-                  <TableRow className="border-slate-100 dark:border-slate-800">
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200">Customer</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200">Email Address</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200">Phone</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200">Orders</TableHead>
-                    <TableHead className="py-4 text-sm font-bold text-slate-800 dark:text-slate-200 text-right">Total Spent</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredCustomers.map((customer) => (
-                    <TableRow key={customer.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <TableCell className="py-4 font-bold text-sm text-slate-900 dark:text-white flex items-center gap-3">
-                        <div className="size-10 rounded-full bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow">
+        {error && <p role="alert" className="px-5 py-3 text-sm text-rose-500">{error}</p>}
+        {loading ? (
+          <LoadingState label="Loading branch customers…" />
+        ) : customers.length === 0 ? (
+          <EmptyState icon={Users} title="No customers found" hint="Customers appear after their first order at this branch." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className={thClass()}>Customer</th>
+                  <th className={thClass()}>Contact</th>
+                  <th className={thClass('right')}>Orders</th>
+                  <th className={thClass('right')}>Total spent</th>
+                  <th className={thClass('right')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.map((customer) => (
+                  <tr key={customer.id} className={trClass}>
+                    <td className={tdClass()}>
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-xs font-bold text-white">
                           {(customer.name || customer.fullName || 'C')[0]?.toUpperCase()}
                         </div>
-                        <span className="text-sm font-bold">{customer.name || customer.fullName || 'Customer'}</span>
-                      </TableCell>
-                      <TableCell className="py-4 text-sm text-slate-600 dark:text-slate-300">
-                        <span className="inline-flex items-center gap-2">
-                          <Mail className="size-4 text-slate-400" />
-                          {customer.email || 'N/A'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-4 text-sm text-slate-600 dark:text-slate-300">
-                        <span className="inline-flex items-center gap-2">
-                          <Phone className="size-4 text-slate-400" />
-                          {customer.phone || 'N/A'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                          {customer.orderCount || 0} Orders
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-4 text-right text-sm font-black text-slate-900 dark:text-white">
-                        ₹{(customer.totalSpent || 0).toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        <div>
+                          <p className="font-semibold text-slate-900 dark:text-white">{customer.name || customer.fullName || 'Customer'}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">ID: #{customer.id}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className={tdClass()}>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <Mail className="size-3.5 text-slate-400" />
+                          <span className="truncate max-w-[200px]">{customer.email || '—'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <Phone className="size-3.5 text-slate-400" />
+                          <span>{customer.phone || '—'}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className={tdClass('right')}>
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-white/10">
+                        {customer.orderCount || 0}
+                      </span>
+                    </td>
+                    <td className={`${tdClass('right')} font-semibold tabular-nums`}>{formatCurrency(customer.totalSpent)}</td>
+                    <td className={tdClass('right')}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setViewingCustomer(customer)
+                            setIsViewDialogOpen(true)
+                          }}
+                          title="View customer"
+                        >
+                          <Eye className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingCustomer({
+                              id: customer.id,
+                              name: customer.name || customer.fullName || '',
+                              email: customer.email || '',
+                              phone: customer.phone || '',
+                            })
+                            setIsEditDialogOpen(true)
+                          }}
+                          title="Edit customer"
+                        >
+                          <Edit className="size-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!loading && customers.length > 0 && (
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={pages}
+            unit="customers"
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPage(0)
+              setPageSize(size)
+            }}
+          />
+        )}
+      </Panel>
 
-      {/* Add Customer Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-md bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 p-6">
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-xl font-black text-slate-900 dark:text-white">Add New Customer</DialogTitle>
-            <DialogDescription className="text-sm text-slate-500">Create a customer profile for branch checkout records.</DialogDescription>
+            <DialogTitle>Edit Customer</DialogTitle>
+            <DialogDescription>Update the customer details for this branch.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-3 text-sm">
+          <div className="space-y-4 py-4">
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-700 dark:text-slate-300">Full Name *</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Name *</label>
               <Input
-                placeholder="Customer full name"
-                value={newCustomer.name}
-                onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                className="h-10 text-sm"
+                value={editingCustomer?.name || ''}
+                onChange={(e) => setEditingCustomer((current) => ({ ...current, name: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-700 dark:text-slate-300">Email Address</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Email</label>
               <Input
                 type="email"
-                placeholder="customer@example.com"
-                value={newCustomer.email}
-                onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                className="h-10 text-sm"
+                value={editingCustomer?.email || ''}
+                onChange={(e) => setEditingCustomer((current) => ({ ...current, email: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-700 dark:text-slate-300">Phone Number</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Phone</label>
               <Input
                 type="tel"
-                placeholder="+91 9876543210"
-                value={newCustomer.phone}
-                onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                className="h-10 text-sm"
+                value={editingCustomer?.phone || ''}
+                onChange={(e) => setEditingCustomer((current) => ({ ...current, phone: e.target.value }))}
               />
             </div>
           </div>
-          <DialogFooter className="pt-3">
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="text-sm font-bold h-10 px-4">
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddCustomer} className="text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white h-10 px-4">
-              Add Customer
+            <Button onClick={handleEditCustomer} disabled={savingEdit}>
+              {savingEdit ? 'Saving...' : 'Save Changes'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Customer Details</DialogTitle>
+            <DialogDescription>Branch purchase history</DialogDescription>
+          </DialogHeader>
+          {viewingCustomer && (
+            <div className="space-y-4 py-2 text-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex size-12 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-sm font-bold text-white">
+                  {(viewingCustomer.name || viewingCustomer.fullName || 'C')[0]?.toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-base font-semibold text-slate-900 dark:text-white">{viewingCustomer.name || viewingCustomer.fullName || 'Customer'}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Customer ID: #{viewingCustomer.id}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Email</p>
+                  <p className="mt-1 font-medium text-slate-900 dark:text-white truncate">{viewingCustomer.email || '—'}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Phone</p>
+                  <p className="mt-1 font-medium text-slate-900 dark:text-white">{viewingCustomer.phone || '—'}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Orders</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{viewingCustomer.orderCount || 0}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Total Spent</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{formatCurrency(viewingCustomer.totalSpent)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
-
-export default CustomersPage
-
-
-

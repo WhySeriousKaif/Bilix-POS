@@ -67,6 +67,11 @@ const apiCall = async (endpoint, options = {}) => {
 // Customer API
 export const customerAPI = {
   getAll: () => apiCall('/customers'),
+  getByBranchPaged: (branchId, page = 0, size = 10, search = '') => {
+    const params = new URLSearchParams({ page, size });
+    if (search.trim()) params.set('search', search.trim());
+    return apiCall(`/customers/branch/${branchId}/paged?${params.toString()}`);
+  },
   getPaged: (page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', search = '') => {
     const params = new URLSearchParams({ page, size, sort: `${sortBy},${direction}` })
     if (search.trim()) params.set('search', search.trim())
@@ -101,13 +106,16 @@ export const orderAPI = {
     const queryString = params.toString();
     return apiCall(`/orders/branch/${branchId}${queryString ? `?${queryString}` : ''}`);
   },
-  getByBranchPaged: (branchId, page = 0, size = 10, sortBy = 'createdAt', direction = 'desc') => {
+  getByBranchPaged: (branchId, page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', filters = {}) => {
     const params = new URLSearchParams({
       page: page.toString(),
       size: size.toString(),
       sortBy,
       direction,
     });
+    for (const [key, value] of Object.entries(filters)) {
+      if (value && value !== 'all') params.set(key, value);
+    }
     return apiCall(`/orders/branch/${branchId}/paged?${params.toString()}`);
   },
   getSystemPaged: ({ page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', search = '', status = '', storeId = '' } = {}) => {
@@ -332,12 +340,12 @@ export const refundAPI = {
   getById: (id) => apiCall(`/refunds/${id}`),
   getByCashier: (cashierId) => apiCall(`/refunds/cashier/${cashierId}`),
   getByBranch: (branchId) => apiCall(`/refunds/branch/${branchId}`),
-  // Kept compatible with branch pagination screens; the backend currently
-  // returns the branch collection, so paginate the result client-side.
-  getByBranchPaged: async (branchId, page = 0, size = 10) => {
-    const refunds = await apiCall(`/refunds/branch/${branchId}`)
-    const items = Array.isArray(refunds) ? refunds : []
-    return { content: items.slice(page * size, (page + 1) * size), totalElements: items.length, totalPages: Math.ceil(items.length / size) }
+  getByBranchPaged: (branchId, page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', filters = {}) => {
+    const params = new URLSearchParams({ page, size, sortBy, direction });
+    for (const [key, value] of Object.entries(filters)) {
+      if (value && value !== 'all') params.set(key, value);
+    }
+    return apiCall(`/refunds/branch/${branchId}/paged?${params.toString()}`);
   },
   getByShift: (shiftReportId) => apiCall(`/refunds/shift/${shiftReportId}`),
   getByOrder: (orderId) => apiCall(`/refunds/order/${orderId}`),
@@ -353,6 +361,10 @@ export const refundAPI = {
 // Inventory API
 export const inventoryAPI = {
   getByBranch: (branchId) => apiCall(`/inventories/branch/${branchId}`),
+  getByBranchPaged: (branchId, page = 0, size = 10, sortBy = 'id', direction = 'asc') => {
+    const params = new URLSearchParams({ page, size, sortBy, direction });
+    return apiCall(`/inventories/branch/${branchId}/paged?${params.toString()}`);
+  },
   getByProductAndBranch: (productId, branchId) => apiCall(`/inventories/product/${productId}/branch/${branchId}`),
   create: (inventoryDto) => apiCall('/inventories', {
     method: 'POST',
