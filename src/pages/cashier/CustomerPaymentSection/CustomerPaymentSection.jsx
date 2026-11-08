@@ -57,6 +57,8 @@ const CustomerPaymentSection = () => {
   const [customerLoadingMore, setCustomerLoadingMore] = useState(false)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
+  const [checkoutKey, setCheckoutKey] = useState(null);
+
 
   useEffect(() => {
     if (isCustomerDialogOpen) {
@@ -115,7 +117,11 @@ const CustomerPaymentSection = () => {
 
   const clearCustomerUrlParams = () => {
     const next = new URLSearchParams(customerParams)
-    ;['customerPage', 'customerSize', 'customerSort', 'customerDirection', 'customerSearch'].forEach((key) => next.delete(key))
+      ;['customerPage',
+        'customerSize',
+        'customerSort',
+        'customerDirection', 
+        'customerSearch'].forEach((key) => next.delete(key))
     setCustomerParams(next, { replace: true })
   }
 
@@ -245,6 +251,12 @@ const CustomerPaymentSection = () => {
 
   const createBackendOrder = async () => {
     try {
+      const idempotencyKey =
+        checkoutKey || crypto.randomUUID();
+
+      if (!checkoutKey) {
+        setCheckoutKey(idempotencyKey);
+      }
       // Prepare order data. branchId/cashierId are intentionally NOT sent — the backend
       // always derives both from the authenticated cashier's own account, never from
       // client-supplied values, so a cashier can't attribute a sale to another branch.
@@ -262,7 +274,9 @@ const CustomerPaymentSection = () => {
       }
 
       // Create order
-      const createdOrder = await orderAPI.create(orderDto)
+      const createdOrder = await orderAPI.create(orderDto, idempotencyKey)
+
+      setCheckoutKey(null);
 
       // Clear cart after successful order
       clearCart()

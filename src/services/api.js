@@ -97,8 +97,10 @@ export const orderAPI = {
   getById: (id) => apiCall(`/orders/${id}`),
   getByCustomerId: (customerId) => apiCall(`/orders/customer/${customerId}`),
   getByCashier: (cashierId) => apiCall(`/orders/cashier/${cashierId}`),
+
   getByBranch: (branchId, filters = {}) => {
     const params = new URLSearchParams();
+
     if (filters.customerId) params.append('customerId', filters.customerId);
     if (filters.cashierId) params.append('cashierId', filters.cashierId);
     if (filters.paymentType) params.append('paymentType', filters.paymentType);
@@ -106,6 +108,7 @@ export const orderAPI = {
     const queryString = params.toString();
     return apiCall(`/orders/branch/${branchId}${queryString ? `?${queryString}` : ''}`);
   },
+
   getByBranchPaged: (branchId, page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', filters = {}) => {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -114,8 +117,10 @@ export const orderAPI = {
       direction,
     });
     for (const [key, value] of Object.entries(filters)) {
+
       if (value && value !== 'all') params.set(key, value);
     }
+
     return apiCall(`/orders/branch/${branchId}/paged?${params.toString()}`);
   },
   getSystemPaged: ({ page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', search = '', status = '', storeId = '' } = {}) => {
@@ -128,8 +133,11 @@ export const orderAPI = {
   getSystemSummary: () => apiCall('/orders/system/summary'),
   getTodayByBranch: (branchId) => apiCall(`/orders/today/branch/${branchId}`),
   getRecentByBranch: (branchId) => apiCall(`/orders/recent/${branchId}`),
-  create: (orderDto) => apiCall('/orders', {
+  create: (orderDto,idempotencyKey) => apiCall('/orders', {
     method: 'POST',
+    headers:{
+      'Idempotency-Key':idempotencyKey
+    },
     body: JSON.stringify(orderDto),
   }),
   update: (id, orderDto) => apiCall(`/orders/${id}`, {
