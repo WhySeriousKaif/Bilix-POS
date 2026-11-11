@@ -2,6 +2,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import ProductSection from './ProductSection/ProductSection'
 import CardSection from './CardSection/CardSection'
 import CustomerPaymentSection from './CustomerPaymentSection/CustomerPaymentSection'
+import RecommendationSection
+  from './RecommendationSection/RecommendationSection'
 
 const MIN_LEFT = 35
 const MAX_LEFT = 75
@@ -69,7 +71,9 @@ const CreateOrder = () => {
         style={{ '--right-w': `${100 - leftWidth}%` }}
       >
         <CardSection />
+        <RecommendationSection />
         <CustomerPaymentSection />
+
       </div>
     </div>
   )

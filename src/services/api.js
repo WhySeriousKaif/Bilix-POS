@@ -41,7 +41,7 @@ const apiCall = async (endpoint, options = {}) => {
         if (errorBody?.message) {
           message = errorBody.message;
         }
-      } catch (parseError) {
+      } catch{
         // Response wasn't JSON — fall back to the generic message above.
       }
       throw new Error(message);
@@ -173,6 +173,26 @@ export const productAPI = {
   }),
 };
 
+export const recommendationAPI = {
+  getRecommendations: (
+    {
+      storeId,
+      productIds,
+      topK = 3,
+    },
+    signal,
+  ) =>
+    apiCall('/ai/recommendations', {
+      method: 'POST',
+      signal,
+      body: JSON.stringify({
+        store_id: storeId,
+        product_ids: productIds,
+        top_k: topK,
+      }),
+    }),
+}
+
 // Auth API
 export const authAPI = {
   login: (credentials) => {
@@ -191,7 +211,7 @@ export const authAPI = {
         try {
           const errorJson = JSON.parse(errorText)
           errorMessage = errorJson.message || errorMessage
-        } catch (e) {
+        } catch {
           // If not JSON, use the text as is
         }
         throw new Error(errorMessage)
@@ -215,7 +235,7 @@ export const authAPI = {
         try {
           const errorJson = JSON.parse(errorText)
           errorMessage = errorJson.message || errorMessage
-        } catch (e) {
+        } catch{
           // If not JSON, use the text as is
         }
         throw new Error(errorMessage)
