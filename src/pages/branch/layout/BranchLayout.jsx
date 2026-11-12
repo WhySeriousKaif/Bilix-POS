@@ -23,6 +23,7 @@ import {
   Search,
   UserCheck,
   Store,
+  Bot,
 } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
@@ -30,6 +31,7 @@ import { useDispatch } from 'react-redux'
 import { logoutUser } from '@/store/slices/authSlice'
 import { branchAPI, userAPI } from '@/services/api'
 import { useTheme } from '@/contexts/ThemeContext'
+import AssistantWidget from '@/components/assistant/AssistantWidget'
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/branch' },
@@ -40,7 +42,17 @@ const menuItems = [
   { id: 'employees', label: 'Employees', icon: Users, path: '/branch/employees' },
   { id: 'customers', label: 'Customers', icon: UserCheck, path: '/branch/customers' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/branch/reports' },
+  { id: 'assistant', label: 'AI Copilot', icon: Bot, path: '/branch/assistant' },
   { id: 'settings', label: 'Settings', icon: Settings, path: '/branch/settings' },
+]
+
+const searchDestinations = [
+  { label: 'Orders', description: 'Search and manage branch orders', path: '/branch/orders', keywords: 'sale invoice transaction' },
+  { label: 'Inventory', description: 'Check products and stock levels', path: '/branch/inventory', keywords: 'product stock sku' },
+  { label: 'Employees', description: 'Manage branch staff and cashiers', path: '/branch/employees', keywords: 'staff cashier manager' },
+  { label: 'Customers', description: 'View branch customers', path: '/branch/customers', keywords: 'buyer customer' },
+  { label: 'Reports', description: 'Open analytics and reports', path: '/branch/reports', keywords: 'analytics sales performance' },
+  { label: 'AI Copilot', description: 'Ask questions about Billix data', path: '/branch/assistant', keywords: 'assistant ai help' },
 ]
 
 const HeaderBrand = () => (
@@ -87,6 +99,7 @@ const BranchLayout = ({ children }) => {
   const [branchInfo, setBranchInfo] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   const [globalSearch, setGlobalSearch] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -161,6 +174,12 @@ const BranchLayout = ({ children }) => {
 
   const displayName = currentUser?.fullName || currentUser?.name || 'Branch Manager'
   const initial = displayName.charAt(0).toUpperCase()
+  const normalizedSearch = globalSearch.trim().toLowerCase()
+  const typeaheadSuggestions = normalizedSearch
+    ? searchDestinations
+        .filter((item) => `${item.label} ${item.description} ${item.keywords}`.toLowerCase().includes(normalizedSearch))
+        .slice(0, 5)
+    : searchDestinations.slice(0, 5)
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#F8FAFE] dark:bg-[#0B1220] text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
@@ -185,21 +204,64 @@ const BranchLayout = ({ children }) => {
         </div>
 
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          <div className="hidden sm:flex items-center gap-2.5 border border-slate-200 dark:border-white/10 rounded-full px-3.5 py-2 bg-slate-50 dark:bg-white/5 w-64 max-w-[40%]">
-            <Search className="size-4 text-slate-400 shrink-0" />
-            <input
-              type="text"
-              placeholder="Search orders, inventory, staff..."
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && globalSearch.trim()) {
-                  navigate(`/branch/orders?search=${encodeURIComponent(globalSearch.trim())}`)
-                  setGlobalSearch('')
-                }
-              }}
-              className="outline-none bg-transparent text-sm w-full text-slate-900 dark:text-white placeholder:text-slate-400"
-            />
+          <div className="relative hidden w-72 max-w-[42%] sm:block">
+            <div className="flex items-center gap-2.5 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 dark:border-white/10 dark:bg-white/5">
+              <Search className="size-4 shrink-0 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search orders, inventory, staff..."
+                value={globalSearch}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && globalSearch.trim()) {
+                    navigate(`/branch/orders?search=${encodeURIComponent(globalSearch.trim())}`)
+                    setGlobalSearch('')
+                    setSearchFocused(false)
+                  }
+                  if (e.key === 'Escape') setSearchFocused(false)
+                }}
+                className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
+              />
+            </div>
+            {searchFocused && (
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-full min-w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-white/10 dark:bg-slate-900">
+                {typeaheadSuggestions.map((item) => (
+                  <button
+                    key={item.path}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      navigate(item.path)
+                      setGlobalSearch('')
+                      setSearchFocused(false)
+                    }}
+                    className="flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-white/5"
+                  >
+                    <Search className="mt-0.5 size-3.5 shrink-0 text-blue-500" />
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold text-slate-900 dark:text-white">{item.label}</span>
+                      <span className="block truncate text-[11px] text-slate-500 dark:text-slate-400">{item.description}</span>
+                    </span>
+                  </button>
+                ))}
+                {normalizedSearch && (
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      navigate(`/branch/orders?search=${encodeURIComponent(globalSearch.trim())}`)
+                      setGlobalSearch('')
+                      setSearchFocused(false)
+                    }}
+                    className="mt-1 flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-left text-xs font-medium text-blue-600 dark:border-white/10 dark:text-blue-400"
+                  >
+                    <Search className="size-3.5" /> Search orders for “{globalSearch.trim()}”
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <button
             onClick={toggleTheme}
@@ -362,6 +424,9 @@ const BranchLayout = ({ children }) => {
             </div>
           </div>
         </div>
+      )}
+      {(location.pathname === '/branch' || location.pathname === '/branch/') && (
+        <AssistantWidget mode="branch" />
       )}
     </div>
   )

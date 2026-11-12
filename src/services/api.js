@@ -1,5 +1,8 @@
 // Use environment variable for API URL, fallback to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const configuredApiHost = import.meta.env.VITE_API_HOST;
+const API_BASE_URL = configuredApiBaseUrl
+  || (configuredApiHost ? `https://${configuredApiHost}/api` : 'http://localhost:5001/api');
 
 // Helper function to get auth token from localStorage
 const getAuthToken = () => {
@@ -41,7 +44,7 @@ const apiCall = async (endpoint, options = {}) => {
         if (errorBody?.message) {
           message = errorBody.message;
         }
-      } catch (parseError) {
+      } catch{
         // Response wasn't JSON — fall back to the generic message above.
       }
       throw new Error(message);
@@ -97,8 +100,10 @@ export const orderAPI = {
   getById: (id) => apiCall(`/orders/${id}`),
   getByCustomerId: (customerId) => apiCall(`/orders/customer/${customerId}`),
   getByCashier: (cashierId) => apiCall(`/orders/cashier/${cashierId}`),
+
   getByBranch: (branchId, filters = {}) => {
     const params = new URLSearchParams();
+
     if (filters.customerId) params.append('customerId', filters.customerId);
     if (filters.cashierId) params.append('cashierId', filters.cashierId);
     if (filters.paymentType) params.append('paymentType', filters.paymentType);
@@ -106,6 +111,7 @@ export const orderAPI = {
     const queryString = params.toString();
     return apiCall(`/orders/branch/${branchId}${queryString ? `?${queryString}` : ''}`);
   },
+
   getByBranchPaged: (branchId, page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', filters = {}) => {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -114,8 +120,10 @@ export const orderAPI = {
       direction,
     });
     for (const [key, value] of Object.entries(filters)) {
+
       if (value && value !== 'all') params.set(key, value);
     }
+
     return apiCall(`/orders/branch/${branchId}/paged?${params.toString()}`);
   },
   getSystemPaged: ({ page = 0, size = 10, sortBy = 'createdAt', direction = 'desc', search = '', status = '', storeId = '' } = {}) => {
@@ -128,8 +136,11 @@ export const orderAPI = {
   getSystemSummary: () => apiCall('/orders/system/summary'),
   getTodayByBranch: (branchId) => apiCall(`/orders/today/branch/${branchId}`),
   getRecentByBranch: (branchId) => apiCall(`/orders/recent/${branchId}`),
-  create: (orderDto) => apiCall('/orders', {
+  create: (orderDto,idempotencyKey) => apiCall('/orders', {
     method: 'POST',
+    headers:{
+      'Idempotency-Key':idempotencyKey
+    },
     body: JSON.stringify(orderDto),
   }),
   update: (id, orderDto) => apiCall(`/orders/${id}`, {
@@ -165,11 +176,48 @@ export const productAPI = {
   }),
 };
 
+export const recommendationAPI = {
+  getRecommendations: (
+    {
+      storeId,
+      productIds,
+      topK = 3,
+    },
+    signal,
+  ) =>
+    apiCall('/ai/recommendations', {
+      method: 'POST',
+      signal,
+      body: JSON.stringify({
+        store_id: storeId,
+        product_ids: productIds,
+        top_k: topK,
+      }),
+    }),
+}
+
+export const assistantAPI = {
+  chat: ({ branchId, message, conversation = [] }) =>
+    apiCall('/ai/assistant/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        branchId,
+        message,
+        conversation,
+      }),
+    }),
+  systemChat: ({ message, conversation = [] }) =>
+    apiCall('/ai/assistant/system/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, conversation }),
+    }),
+}
+
 // Auth API
 export const authAPI = {
   login: (credentials) => {
     // Login endpoint doesn't require token
-    const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5001'
+    const baseURL = API_BASE_URL.replace(/\/api\/?$/, '')
     return fetch(`${baseURL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -183,7 +231,7 @@ export const authAPI = {
         try {
           const errorJson = JSON.parse(errorText)
           errorMessage = errorJson.message || errorMessage
-        } catch (e) {
+        } catch {
           // If not JSON, use the text as is
         }
         throw new Error(errorMessage)
@@ -193,7 +241,7 @@ export const authAPI = {
   },
   signup: (userData) => {
     // Signup endpoint doesn't require token
-    const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5001'
+    const baseURL = API_BASE_URL.replace(/\/api\/?$/, '')
     return fetch(`${baseURL}/auth/signup`, {
       method: 'POST',
       headers: {
@@ -207,7 +255,7 @@ export const authAPI = {
         try {
           const errorJson = JSON.parse(errorText)
           errorMessage = errorJson.message || errorMessage
-        } catch (e) {
+        } catch{
           // If not JSON, use the text as is
         }
         throw new Error(errorMessage)

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -32,6 +31,13 @@ import {
 } from '@/services/api'
 import { useSearchParams } from 'react-router-dom'
 import { exportTabularReportPDF } from '@/utils/reportPdfGenerator'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 const TransactionsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -40,6 +46,7 @@ const TransactionsPage = () => {
   const [transactions, setTransactions] = useState([])
   const [filteredTransactions, setFilteredTransactions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedTransaction, setSelectedTransaction] = useState(null)
   
   // Filters
   const [dateFilter, setDateFilter] = useState('all')
@@ -573,11 +580,7 @@ const TransactionsPage = () => {
                           variant="ghost"
                           size="sm"
                           className="h-8 w-8 p-0"
-                          onClick={() => {
-                            // View transaction details
-                            const details = `Reference: ${transaction.reference}\nType: ${transaction.type}\nDate: ${formatDateTime(transaction.date)}\nDescription: ${transaction.description}\nAmount: ${transaction.type === 'Sale' ? '+' : '-'}${formatCurrency(transaction.amount)}\nPayment Method: ${getPaymentMethodLabel(transaction.paymentMethod)}\nStatus: ${getStatusLabel(transaction.status)}`
-                            toast('Transaction Details', { description: details })
-                          }}
+                          onClick={() => setSelectedTransaction(transaction)}
                           title="View Transaction Details"
                         >
                           <Eye className="size-4" />
@@ -600,6 +603,44 @@ const TransactionsPage = () => {
           )}
         </CardContent>
       </Card>
+      <Dialog open={Boolean(selectedTransaction)} onOpenChange={(open) => { if (!open) setSelectedTransaction(null) }}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-blue-600 text-white"><CreditCard className="size-4" /></span>
+              Transaction Details
+            </DialogTitle>
+            <DialogDescription>Complete read-only information for this transaction.</DialogDescription>
+          </DialogHeader>
+          {selectedTransaction && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                ['Reference', selectedTransaction.reference],
+                ['Type', selectedTransaction.type],
+                ['Date & time', formatDateTime(selectedTransaction.date)],
+                ['Branch', selectedTransaction.branch?.name || 'Unknown'],
+                ['Payment method', getPaymentMethodLabel(selectedTransaction.paymentMethod)],
+                ['Status', getStatusLabel(selectedTransaction.status)],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{value}</p>
+                </div>
+              ))}
+              <div className="sm:col-span-2 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Description</p>
+                <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{selectedTransaction.description}</p>
+              </div>
+              <div className="sm:col-span-2 flex items-center justify-between rounded-xl bg-slate-900 p-4 text-white dark:bg-blue-600">
+                <span className="text-sm font-medium">Transaction amount</span>
+                <span className="text-xl font-bold tabular-nums">
+                  {selectedTransaction.type === 'Sale' ? '+' : '-'}{formatCurrency(selectedTransaction.amount)}
+                </span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

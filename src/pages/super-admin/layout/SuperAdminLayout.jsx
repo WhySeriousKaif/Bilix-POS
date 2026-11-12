@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users as UsersIcon,
+  Bot,
 } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ import { logoutUser } from '@/store/slices/authSlice'
 import { userAPI, storeAPI } from '@/services/api'
 import { useTheme } from '@/contexts/ThemeContext'
 import { formatDistanceToNow } from 'date-fns'
+import AssistantWidget from '@/components/assistant/AssistantWidget'
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/super-admin' },
@@ -34,6 +36,7 @@ const menuItems = [
   { id: 'pending-requests', label: 'Pending Requests', icon: Clock, path: '/super-admin/pending-requests' },
   { id: 'sales', label: 'Sales', icon: ShoppingCart, path: '/super-admin/sales' },
   { id: 'exports', label: 'Exports', icon: Download, path: '/super-admin/exports' },
+  { id: 'assistant', label: 'AI Insights', icon: Bot, path: '/super-admin/assistant' },
   { id: 'settings', label: 'Settings', icon: Settings, path: '/super-admin/settings' },
 ]
 
@@ -434,6 +437,9 @@ const SuperAdminLayout = ({ children }) => {
             </div>
           </div>
         </div>
+      )}
+      {(location.pathname === '/super-admin' || location.pathname === '/super-admin/') && (
+        <AssistantWidget mode="system" />
       )}
     </div>
   )

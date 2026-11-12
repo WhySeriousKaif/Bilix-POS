@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { dashboardAPI, storeAPI, userAPI, orderAPI, refundAPI, customerAPI, shiftReportAPI, branchAPI } from '@/services/api'
+import { dashboardAPI, userAPI, branchAPI } from '@/services/api'
 import { cn } from '@/lib/utils'
 import {
   ArrowRight,
@@ -55,16 +55,6 @@ const METRICS = [
   { key: 'uniqueCustomers', label: 'Unique Customers', icon: Users, tone: 'purple', format: 'number' },
   { key: 'averageOrderValue', label: 'Average Order Value', icon: Package, tone: 'amber', format: 'currency' },
 ]
-
-const BRANCH_TONES = [
-  { bar: 'bg-blue-500', chip: 'bg-blue-500/10 text-blue-600', dot: '#3b82f6' },
-  { bar: 'bg-orange-500', chip: 'bg-orange-500/10 text-orange-600', dot: '#f97316' },
-  { bar: 'bg-purple-500', chip: 'bg-purple-500/10 text-purple-600', dot: '#8b5cf6' },
-  { bar: 'bg-emerald-500', chip: 'bg-emerald-500/10 text-emerald-600', dot: '#10b981' },
-  { bar: 'bg-cyan-500', chip: 'bg-cyan-500/10 text-cyan-600', dot: '#06b6d4' },
-]
-
-const branchTone = (index) => BRANCH_TONES[index % BRANCH_TONES.length]
 
 const STATUS_COLORS = {
   COMPLETED: '#10b981',
@@ -391,7 +381,16 @@ const BranchManagerDashboard = () => {
           <Panel title="Sales Trend" subtitle="Total sales for this branch" className="xl:col-span-2" action={
             <select
               value={dashboard?.granularity || ''}
-              onChange={(event) => setGranularity(event.target.value)}
+              onChange={(event) => {
+                const nextGranularity = event.target.value
+                if (nextGranularity === 'WEEKLY' && ['TODAY', '7D'].includes(period)) {
+                  setPeriod('30D')
+                }
+                if (nextGranularity === 'MONTHLY' && ['TODAY', '7D', '30D'].includes(period)) {
+                  setPeriod('3M')
+                }
+                setGranularity(nextGranularity)
+              }}
               className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"
             >
               {granularityOptions.map((option) => (
