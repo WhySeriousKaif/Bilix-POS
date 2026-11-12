@@ -1,5 +1,8 @@
 // Use environment variable for API URL, fallback to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const configuredApiHost = import.meta.env.VITE_API_HOST;
+const API_BASE_URL = configuredApiBaseUrl
+  || (configuredApiHost ? `https://${configuredApiHost}/api` : 'http://localhost:5001/api');
 
 // Helper function to get auth token from localStorage
 const getAuthToken = () => {
@@ -193,11 +196,28 @@ export const recommendationAPI = {
     }),
 }
 
+export const assistantAPI = {
+  chat: ({ branchId, message, conversation = [] }) =>
+    apiCall('/ai/assistant/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        branchId,
+        message,
+        conversation,
+      }),
+    }),
+  systemChat: ({ message, conversation = [] }) =>
+    apiCall('/ai/assistant/system/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, conversation }),
+    }),
+}
+
 // Auth API
 export const authAPI = {
   login: (credentials) => {
     // Login endpoint doesn't require token
-    const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5001'
+    const baseURL = API_BASE_URL.replace(/\/api\/?$/, '')
     return fetch(`${baseURL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -221,7 +241,7 @@ export const authAPI = {
   },
   signup: (userData) => {
     // Signup endpoint doesn't require token
-    const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5001'
+    const baseURL = API_BASE_URL.replace(/\/api\/?$/, '')
     return fetch(`${baseURL}/auth/signup`, {
       method: 'POST',
       headers: {

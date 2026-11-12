@@ -513,7 +513,16 @@ const StoreAdminDashboard = () => {
             action={
               <select
                 value={dashboard?.granularity || ''}
-                onChange={(event) => setGranularity(event.target.value)}
+                onChange={(event) => {
+                  const nextGranularity = event.target.value
+                  if (nextGranularity === 'WEEKLY' && ['TODAY', '7D'].includes(period)) {
+                    setPeriod('30D')
+                  }
+                  if (nextGranularity === 'MONTHLY' && ['TODAY', '7D', '30D'].includes(period)) {
+                    setPeriod('3M')
+                  }
+                  setGranularity(nextGranularity)
+                }}
                 className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"
               >
                 {granularityOptions.map((option) => (

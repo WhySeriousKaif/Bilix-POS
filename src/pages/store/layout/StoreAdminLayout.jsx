@@ -22,6 +22,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Bot,
 } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
@@ -30,6 +31,7 @@ import { logoutUser } from '@/store/slices/authSlice'
 import { storeAPI, userAPI } from '@/services/api'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useStoreAlerts } from '@/hooks/useStoreAlerts'
+import AssistantWidget from '@/components/assistant/AssistantWidget'
 
 const NOTIFICATIONS_POLL_INTERVAL_MS = 30000
 
@@ -44,6 +46,7 @@ const menuItems = [
   { id: 'sales', label: 'Sales', icon: TrendingUp, path: '/store/sales' },
   { id: 'transactions', label: 'Transactions', icon: CreditCard, path: '/store/transactions' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/store/reports' },
+  { id: 'assistant', label: 'AI Copilot', icon: Bot, path: '/store/assistant' },
   { id: 'settings', label: 'Settings', icon: Settings, path: '/store/settings' },
 ]
 
@@ -337,6 +340,9 @@ const StoreAdminLayout = ({ children }) => {
             </div>
           </div>
         </div>
+      )}
+      {(location.pathname === '/store' || location.pathname === '/store/') && (
+        <AssistantWidget mode="store" />
       )}
     </div>
   )

@@ -12,6 +12,7 @@ import SalesPage from '@/pages/store/sales/SalesPage'
 import TransactionsPage from '@/pages/store/transactions/TransactionsPage'
 import ReportsPage from '@/pages/store/reports/ReportsPage'
 import SettingsPage from '@/pages/store/settings/SettingsPage'
+import AssistantPage from '@/pages/shared/AssistantPage'
 
 const StoreAdminRoutes = () => {
   return (
@@ -28,6 +29,7 @@ const StoreAdminRoutes = () => {
         <Route path="sales" element={<SalesPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="assistant" element={<AssistantPage mode="store" />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/store" replace />} />
       </Routes>
