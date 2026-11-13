@@ -299,7 +299,7 @@ const CustomerPaymentSection = () => {
   }
 
   return (
-    <div className='shrink-0 flex flex-col gap-3 border-t border-slate-100 dark:border-white/5 max-h-[60%] overflow-y-auto'>
+    <div className='flex flex-col gap-3 border-t border-slate-100 dark:border-white/5'>
       <div className='p-4 sm:p-6 space-y-3'>
         {/* Customer */}
         <button
