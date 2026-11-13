@@ -10,7 +10,7 @@ import {
 
 import { useCart } from '@/contexts/CartContext'
 import {
-    productAPI,
+    inventoryAPI,
     recommendationAPI,
     userAPI,
 } from '@/services/api'
@@ -42,13 +42,13 @@ const RecommendationSection = () => {
             try {
                 const profile = await userAPI.getProfile()
 
-                if (!profile?.storeId) {
+                if (!profile?.storeId || !profile?.branchId) {
                     return
                 }
 
-                const products =
-                    await productAPI.getByStoreId(
-                        profile.storeId,
+                const inventory =
+                    await inventoryAPI.getByBranch(
+                        profile.branchId,
                     )
 
                 if (!active) {
@@ -57,9 +57,19 @@ const RecommendationSection = () => {
 
                 setStoreId(profile.storeId)
                 setCatalog(
-                    Array.isArray(products)
-                        ? products
-                        : [],
+                    (Array.isArray(inventory)
+                        ? inventory
+                        : [])
+                        .filter(item =>
+                            item?.product
+                            && Number(item.quantity) > 0
+                        )
+                        .map(item => ({
+                            ...item.product,
+                            quantity: Number(item.quantity),
+                            inventoryId: item.id,
+                            branchId: profile.branchId,
+                        })),
                 )
             }
             catch (error) {
