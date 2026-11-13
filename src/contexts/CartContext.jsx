@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const CartContext = createContext();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCart = () => {
   const context = useContext(CartContext);
   if (!context) {
@@ -17,6 +18,12 @@ export const CartProvider = ({ children }) => {
   const [orderNote, setOrderNote] = useState('');
 
   const addToCart = useCallback((product) => {
+    // Cashiers may sell only products resolved from their branch inventory.
+    // This is a UI safeguard; the backend still performs the authoritative check.
+    if (!product?.inventoryId || !product?.branchId || Number(product.quantity) <= 0) {
+      return false;
+    }
+
     setCartItems((prevItems) => {
       const existingItem = prevItems.find(item => item.product.id === product.id);
       
@@ -43,6 +50,7 @@ export const CartProvider = ({ children }) => {
         ];
       }
     });
+    return true;
   }, []);
 
   const removeFromCart = useCallback((itemId) => {

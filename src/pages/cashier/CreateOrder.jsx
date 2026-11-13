@@ -4,6 +4,7 @@ import CardSection from './CardSection/CardSection'
 import CustomerPaymentSection from './CustomerPaymentSection/CustomerPaymentSection'
 import RecommendationSection
   from './RecommendationSection/RecommendationSection'
+import { GripVertical } from 'lucide-react'
 
 const MIN_LEFT = 35
 const MAX_LEFT = 75
@@ -17,20 +18,21 @@ const CreateOrder = () => {
   const containerRef = useRef(null)
   const draggingRef = useRef(false)
 
-  const handleMouseDown = useCallback(() => {
+  const handlePointerDown = useCallback((event) => {
+    event.preventDefault()
     draggingRef.current = true
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
   }, [])
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
+    const handlePointerMove = (event) => {
       if (!draggingRef.current || !containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
-      const percent = ((e.clientX - rect.left) / rect.width) * 100
+      const percent = ((event.clientX - rect.left) / rect.width) * 100
       setLeftWidth(Math.min(MAX_LEFT, Math.max(MIN_LEFT, percent)))
     }
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       if (!draggingRef.current) return
       draggingRef.current = false
       document.body.style.cursor = ''
@@ -40,11 +42,15 @@ const CreateOrder = () => {
         return current
       })
     }
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
     }
   }, [])
 
@@ -59,11 +65,19 @@ const CreateOrder = () => {
 
       {/* Drag handle (desktop only) */}
       <div
-        onMouseDown={handleMouseDown}
-        className='hidden lg:flex w-1.5 shrink-0 items-center justify-center cursor-col-resize group relative z-10'
-        title='Drag to resize'
+        role='separator'
+        aria-label='Resize product and transaction panels'
+        aria-orientation='vertical'
+        aria-valuenow={Math.round(leftWidth)}
+        onPointerDown={handlePointerDown}
+        onDoubleClick={() => setLeftWidth(DEFAULT_LEFT)}
+        className='hidden lg:flex w-3 shrink-0 items-center justify-center cursor-col-resize group relative z-20 touch-none bg-slate-100 dark:bg-[#111A2D] hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors'
+        title='Drag left or right to resize. Double-click to reset.'
       >
-        <div className='w-1 h-full bg-slate-200 dark:bg-white/10 group-hover:bg-blue-400 dark:group-hover:bg-blue-500 transition-colors' />
+        <div className='absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-slate-300 dark:bg-white/15 group-hover:bg-blue-500 transition-colors' />
+        <span className='relative flex h-12 w-5 items-center justify-center rounded-full border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-800 text-slate-400 group-hover:border-blue-500 group-hover:text-blue-500 shadow-sm'>
+          <GripVertical className='size-4' />
+        </span>
       </div>
 
       <div

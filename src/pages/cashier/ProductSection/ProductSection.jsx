@@ -130,7 +130,9 @@ const ProductSection = () => {
         <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">Create Transaction</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-0.5 text-sm">Pick products to start a new order</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-0.5 text-sm">
+              Only products currently stocked in your branch are shown
+            </p>
           </div>
           <Button
             variant="outline"

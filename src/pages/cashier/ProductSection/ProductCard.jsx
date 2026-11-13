@@ -14,7 +14,7 @@ const ProductCard = ({ product, onClick }) => {
       <div className="relative h-40 sm:h-44 shrink-0 bg-blue-50/60 dark:bg-blue-500/5">
         {product.quantity !== undefined && product.quantity !== null && (
           <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-900/85 text-white">
-            {product.quantity} Stock
+            {product.quantity} in this branch
           </span>
         )}
         {product.image ? (
