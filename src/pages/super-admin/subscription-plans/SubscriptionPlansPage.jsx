@@ -78,6 +78,7 @@ const SubscriptionPlansPage = () => {
   const confirm = useConfirm()
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState(null)
@@ -95,7 +96,7 @@ const SubscriptionPlansPage = () => {
       setPlans((data || []).map(fromDto))
     } catch (error) {
       console.error('Error fetching subscription plans:', error)
-      setPlans([])
+      toast.error('Could not refresh subscription plans. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -132,18 +133,27 @@ const SubscriptionPlansPage = () => {
   }
 
   const handleUpdatePlan = async () => {
+    if (saving || !selectedPlan) return
     if (!editPlan.name || !editPlan.price) {
       toast.error('Please fill in all required fields')
       return
     }
+    setSaving(true)
     try {
-      await subscriptionPlanAPI.update(selectedPlan.id, toDto(editPlan))
-      await fetchPlans()
+      const savedPlan = await subscriptionPlanAPI.update(selectedPlan.id, toDto(editPlan))
+      if (!savedPlan || savedPlan.id == null) {
+        throw new Error('The server did not return the saved plan. Refresh to verify the update.')
+      }
+      const updatedPlan = fromDto(savedPlan)
+      setPlans((current) => current.map((plan) => plan.id === updatedPlan.id ? updatedPlan : plan))
       setIsEditDialogOpen(false)
       setSelectedPlan(null)
+      toast.success('Plan updated successfully')
     } catch (error) {
       console.error('Error updating plan:', error)
-      toast.error('Failed to update plan')
+      toast.error(error.message || 'Failed to update plan')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -171,10 +181,16 @@ const SubscriptionPlansPage = () => {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">Subscription Plans</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">Manage subscription plans for stores</p>
         </div>
+        <div className="flex shrink-0 items-center gap-2">
+        <Button variant="outline" onClick={fetchPlans} disabled={loading || saving}>
+          <RefreshCw className={`size-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
         <Button onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="size-4 mr-2" />
           Add Plan
         </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -220,9 +236,9 @@ const SubscriptionPlansPage = () => {
                     <p className="text-sm font-medium mb-2">Features:</p>
                     <ul className="space-y-1">
                       {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-center gap-2 text-sm">
-                          <Check className="size-4 text-blue-600" />
-                          <span>{feature}</span>
+                        <li key={idx} className="flex items-start gap-2 text-sm">
+                          <Check className="mt-0.5 size-4 shrink-0 text-blue-600" />
+                          <span className="min-w-0 break-words">{feature}</span>
                         </li>
                       ))}
                     </ul>
@@ -500,7 +516,10 @@ const SubscriptionPlansPage = () => {
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleUpdatePlan}>Update Plan</Button>
+              <Button onClick={handleUpdatePlan} disabled={saving}>
+                {saving && <RefreshCw className="size-4 mr-2 animate-spin" />}
+                {saving ? 'Saving…' : 'Update Plan'}
+              </Button>
             </div>
           </div>
         </DialogContent>
