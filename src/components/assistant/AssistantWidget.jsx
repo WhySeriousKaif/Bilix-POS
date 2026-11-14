@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Bot, ExternalLink, Loader2, MessageCircle, Send, X } from 'lucide-react'
+import { ArrowUpRight, Bot, ExternalLink, Loader2, MessageCircle, Send, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -95,10 +95,10 @@ const AssistantWidget = ({ mode = 'branch' }) => {
   return (
     <>
       {open && (
-        <section className="fixed bottom-24 right-4 z-40 flex h-[min(590px,calc(100vh-8rem))] w-[min(410px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+        <section aria-label="Billix Copilot chat" className="fixed bottom-24 right-4 z-40 flex h-[min(480px,calc(100dvh-8rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900">
           <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10">
             <div className="flex items-center gap-2.5">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-blue-600 text-white"><Bot className="size-4.5" /></span>
+              <span className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500"><Bot className="size-4" /></span>
               <div>
                 <p className="text-sm font-bold">Billix Copilot</p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">{branchName || 'Loading branch…'} · read only</p>
@@ -110,26 +110,30 @@ const AssistantWidget = ({ mode = 'branch' }) => {
             </div>
           </header>
 
-          <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/70 p-4 dark:bg-white/[0.02]">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
             {!messages.length && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold">Ask about this dashboard</p>
+              <div className="space-y-2 py-3">
+                <p className="text-base font-semibold tracking-tight">How can I help?</p>
+                <p className="pb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">Explore your dashboard data. Choose a question to get started.</p>
                 {suggestions.map((suggestion) => (
-                  <button key={suggestion} type="button" onClick={() => send(suggestion)} className="block w-full rounded-xl border border-slate-200 bg-white p-2.5 text-left text-xs text-slate-600 hover:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                    {suggestion}
+                  <button key={suggestion} type="button" onClick={() => send(suggestion)} disabled={!branchId || loading} className="flex w-full items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/50 p-3 text-left text-xs leading-5 text-slate-600 transition hover:border-blue-400 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300">
+                    <span>{suggestion}</span><ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-slate-400" />
                   </button>
                 ))}
               </div>
             )}
             {messages.map((message, index) => (
               <div key={`${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${message.role === 'user' ? 'bg-blue-600 text-white' : 'border border-slate-200 bg-white text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200'}`}>
+                <div className={`max-w-[95%] break-words rounded-xl px-3 py-2.5 text-xs leading-5 ${message.role === 'user' ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-200'}`}>
                   {message.role === 'assistant' ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                       p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                       ul: ({ children }) => <ul className="my-2 list-disc space-y-1 pl-4 marker:text-blue-500">{children}</ul>,
                       ol: ({ children }) => <ol className="my-2 list-decimal space-y-1 pl-4 marker:text-blue-500">{children}</ol>,
                       strong: ({ children }) => <strong className="font-semibold text-slate-950 dark:text-white">{children}</strong>,
+                      table: ({ children }) => <div className="my-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10"><table className="w-full text-left text-xs">{children}</table></div>,
+                      th: ({ children }) => <th className="border-b border-slate-200 px-2 py-1.5 dark:border-white/10">{children}</th>,
+                      td: ({ children }) => <td className="border-b border-slate-100 px-2 py-1.5 dark:border-white/5">{children}</td>,
                     }}>{message.content}</ReactMarkdown>
                   ) : message.content}
                   {!!message.toolsUsed?.length && (
@@ -144,14 +148,14 @@ const AssistantWidget = ({ mode = 'branch' }) => {
             {error && <p className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{error}</p>}
           </div>
 
-          <form onSubmit={(event) => { event.preventDefault(); send() }} className="flex gap-2 border-t border-slate-200 p-3 dark:border-white/10">
-            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask about sales, orders, stock…" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-white/10" />
-            <button type="submit" disabled={!input.trim() || loading || !branchId} className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white disabled:opacity-40"><Send className="size-4" /></button>
+          <form onSubmit={(event) => { event.preventDefault(); send() }} className="flex shrink-0 gap-2 border-t border-slate-200 bg-slate-50/50 p-3 dark:border-white/10 dark:bg-white/[0.02]">
+            <input aria-label="Message Copilot" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ask about your dashboard…" className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-white/10 dark:bg-slate-900" />
+            <button type="submit" aria-label="Send message" disabled={!input.trim() || loading || !branchId} className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white disabled:opacity-40"><Send className="size-4" /></button>
           </form>
         </section>
       )}
 
-      <button type="button" onClick={() => setOpen((current) => !current)} className="fixed bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 transition hover:scale-105 hover:bg-blue-700" title="Ask Billix Copilot">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((current) => !current)} className="fixed bottom-6 right-6 z-40 flex size-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition hover:bg-blue-700" title="Ask Billix Copilot">
         {open ? <X className="size-5" /> : <MessageCircle className="size-6" />}
       </button>
     </>

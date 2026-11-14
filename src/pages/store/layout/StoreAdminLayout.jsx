@@ -195,9 +195,9 @@ const StoreAdminLayout = ({ children }) => {
   )
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#F8FAFE] dark:bg-[#0B1220] text-slate-900 dark:text-slate-100 overflow-hidden transition-colors">
+    <div className="store-density h-screen w-screen flex flex-col bg-[#F8FAFE] dark:bg-[#0B1220] text-slate-900 dark:text-slate-100 overflow-hidden transition-colors">
       {/* Header */}
-      <header className="h-16 shrink-0 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 flex items-center justify-between px-4 sm:px-6 z-10 gap-4">
+      <header className="h-14 shrink-0 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 flex items-center justify-between px-4 sm:px-5 z-10 gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <Button
             variant="ghost"
@@ -210,7 +210,7 @@ const StoreAdminLayout = ({ children }) => {
           <HeaderBrand />
         </div>
         <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-          <div className="hidden sm:flex items-center gap-2.5 border border-slate-200 dark:border-white/10 rounded-full px-3.5 py-2 bg-slate-50 dark:bg-white/5 w-64 max-w-[40%]">
+          <div className="hidden sm:flex items-center gap-2 border border-slate-200 dark:border-white/10 rounded-full px-3 py-1.5 bg-slate-50 dark:bg-white/5 w-56 max-w-[40%]">
             <Search className="size-4 text-slate-400 shrink-0" />
             <input
               type="text"
@@ -221,14 +221,14 @@ const StoreAdminLayout = ({ children }) => {
           <button
             onClick={toggleTheme}
             title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="p-2.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
-            {darkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
+            {darkMode ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
           </button>
           <Popover>
             <PopoverTrigger asChild>
-              <button className="relative p-2.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer">
-                <Bell className="size-5" />
+              <button className="relative p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer">
+                <Bell className="size-[18px]" />
                 {notifications.length > 0 && (
                   <span className="absolute top-1.5 right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
                     {notifications.length > 9 ? '9+' : notifications.length}
@@ -253,8 +253,8 @@ const StoreAdminLayout = ({ children }) => {
               )}
             </PopoverContent>
           </Popover>
-          <div className="flex items-center gap-2.5 pl-2 ml-1 border-l border-slate-200 dark:border-white/10">
-            <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+          <div className="flex items-center gap-2 pl-2 ml-1 border-l border-slate-200 dark:border-white/10">
+            <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
               {initial}
             </div>
             <div className="hidden sm:block text-sm">

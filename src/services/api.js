@@ -133,7 +133,7 @@ export const orderAPI = {
     if (storeId) params.set('storeId', storeId);
     return apiCall(`/orders/system/paged?${params.toString()}`);
   },
-  getSystemSummary: () => apiCall('/orders/system/summary'),
+  getSystemSummary: ({ days = 7 } = {}) => apiCall(`/orders/system/summary?${new URLSearchParams({ days })}`),
   getTodayByBranch: (branchId) => apiCall(`/orders/today/branch/${branchId}`),
   getRecentByBranch: (branchId) => apiCall(`/orders/recent/${branchId}`),
   create: (orderDto,idempotencyKey) => apiCall('/orders', {

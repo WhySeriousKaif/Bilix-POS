@@ -118,11 +118,11 @@ const CreateOrder = () => {
 
       <div
         ref={rightPanelRef}
-        className='w-full lg:w-(--right-w) flex flex-col h-full min-h-0 bg-white dark:bg-slate-900 border-t lg:border-t-0 border-slate-200 dark:border-white/10'
+        className='w-full lg:w-(--right-w) flex flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-[#0B1220] border-t lg:border-t-0 border-slate-200 dark:border-white/10'
         style={{ '--right-w': `${100 - leftWidth}%` }}
       >
         <div
-          className='flex-1 lg:flex-none min-h-0'
+          className='flex-1 lg:flex-none min-h-0 overflow-hidden bg-white dark:bg-[#0B1220]'
           style={{ height: `${cartHeight}%` }}
         >
           <CardSection />
@@ -144,7 +144,7 @@ const CreateOrder = () => {
           </span>
         </div>
 
-        <div className='flex-1 min-h-0 overflow-y-auto'>
+        <div className='flex-1 min-h-0 overflow-y-auto bg-white dark:bg-[#0B1220]'>
           <RecommendationSection />
           <CustomerPaymentSection />
         </div>

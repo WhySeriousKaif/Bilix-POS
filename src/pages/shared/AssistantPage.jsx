@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Bot, CheckCircle2, Loader2, Search, Send, ShieldCheck, Sparkles, User } from 'lucide-react'
+import { ArrowUpRight, Bot, CheckCircle2, Loader2, Search, Send, ShieldCheck, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -174,15 +174,11 @@ const AssistantPage = ({ mode = 'branch' }) => {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400">
-            <Sparkles className="size-4" />
-            Grounded retail assistant
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            {mode === 'system' ? 'Billix Super Admin Copilot' : 'Billix Manager Copilot'}
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Billix Copilot
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {mode === 'system'
@@ -211,23 +207,23 @@ const AssistantPage = ({ mode = 'branch' }) => {
         )}
       </div>
 
-      <Card className="flex min-h-[620px] flex-col overflow-hidden p-0">
-        <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white">
-            <Bot className="size-5" />
+      <Card className="flex h-[min(660px,calc(100dvh-13rem))] min-h-[360px] flex-col gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-sm dark:border-white/10 dark:bg-slate-900">
+        <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+            <Bot className="size-4" />
           </span>
           <div>
-            <p className="font-semibold text-slate-900 dark:text-white">
-              {mode === 'system' ? 'Platform Copilot' : 'Manager Copilot'}
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              {mode === 'system' ? 'Platform assistant' : branches.find((branch) => String(branch.id) === branchId)?.name || 'Branch assistant'}
             </p>
             <p className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
               <ShieldCheck className="size-3.5 text-emerald-500" />
-              Read-only tools · grounded sources
+              View insights · No changes to your data
             </p>
           </div>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-4 sm:p-6 dark:bg-white/[0.02]">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
           {error && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
               {error}
@@ -235,15 +231,12 @@ const AssistantPage = ({ mode = 'branch' }) => {
           )}
 
           {!messages.length && !error && (
-            <div className="mx-auto flex max-w-xl flex-col items-center py-12 text-center">
-              <span className="flex size-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-                <Bot className="size-7" />
-              </span>
-              <h2 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">
-                How can I help with this branch?
+            <div className="mx-auto flex max-w-xl flex-col items-center py-6 text-center sm:py-8">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+                {mode === 'system' ? 'What would you like to know about your platform?' : 'What would you like to know about this branch?'}
               </h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Responses use live Billix tools and cited policy documents.
+                Ask a question or start with one below.
               </p>
               <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
                 {(mode === 'system' ? SYSTEM_SUGGESTIONS : SUGGESTIONS).map((suggestion) => (
@@ -252,9 +245,9 @@ const AssistantPage = ({ mode = 'branch' }) => {
                     type="button"
                     onClick={() => sendMessage(suggestion)}
                     disabled={!branchId || initializing}
-                    className="rounded-xl border border-slate-200 bg-white p-3 text-left text-sm text-slate-700 transition hover:border-blue-300 hover:text-blue-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+                    className="group flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-left text-xs leading-5 text-slate-600 transition hover:border-blue-400 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:bg-blue-500/5"
                   >
-                    {suggestion}
+                    <span>{suggestion}</span><ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-slate-400 group-hover:text-blue-500" />
                   </button>
                 ))}
               </div>
@@ -273,12 +266,12 @@ const AssistantPage = ({ mode = 'branch' }) => {
               )}
               <div className={`max-w-[82%] ${message.role === 'user' ? 'order-first' : ''}`}>
                 <div
-                  className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                  className={`break-words rounded-xl px-4 py-3 text-sm leading-6 ${
                     message.role === 'user'
                       ? 'bg-slate-900 text-white dark:bg-blue-600'
                       : message.error || message.unavailable
                         ? 'border border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300'
-                        : 'border border-slate-200 bg-white text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200'
+                        : 'text-slate-700 dark:text-slate-200'
                   }`}
                 >
                   {message.role === 'assistant' && !message.error && !message.unavailable
@@ -329,7 +322,7 @@ const AssistantPage = ({ mode = 'branch' }) => {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="border-t border-slate-200 p-4 dark:border-white/10">
+        <form onSubmit={handleSubmit} className="shrink-0 border-t border-slate-200 bg-slate-50/50 p-3 dark:border-white/10 dark:bg-white/[0.02]">
           <div className="flex items-end gap-3">
             <Textarea
               value={input}
@@ -340,10 +333,11 @@ const AssistantPage = ({ mode = 'branch' }) => {
                   sendMessage()
                 }
               }}
-              placeholder="Ask about products, stock, recommendations, or policies…"
+              placeholder={mode === 'system' ? 'Ask about sales, stores, users, or refunds…' : 'Ask about products, stock, or policies…'}
               disabled={!branchId || loading || initializing}
               maxLength={2000}
-              className="min-h-11 resize-none"
+              aria-label="Message Copilot"
+              className="min-h-11 max-h-28 resize-none rounded-xl bg-white text-sm dark:bg-slate-900"
             />
             <Button type="submit" disabled={!input.trim() || !branchId || loading} className="h-11 px-4">
               {loading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}

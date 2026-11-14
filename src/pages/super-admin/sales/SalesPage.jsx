@@ -9,7 +9,9 @@ import {
   Search,
   Download,
   Store,
+  Info,
 } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { format } from 'date-fns'
 import { exportSuperAdminSalesPDF } from '@/utils/reportPdfGenerator'
 import {
@@ -20,13 +22,10 @@ import {
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts'
 
@@ -34,6 +33,13 @@ const Card = ({ className = '', children }) => <div className={`rounded-xl borde
 const CardHeader = ({ children }) => <div className="p-4 pb-2">{children}</div>
 const CardContent = ({ className = '', children }) => <div className={`p-4 ${className}`}>{children}</div>
 const CardTitle = ({ children }) => <h2 className="text-lg font-bold">{children}</h2>
+const compactMoney = (value) => `₹${new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}`
+const SalesTooltip = ({ active, payload, label }) => active && payload?.length ? (
+  <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg dark:border-white/15 dark:bg-slate-800">
+    <p className="text-slate-500 dark:text-slate-400">{label}</p>
+    <p className="mt-1 font-semibold text-slate-900 dark:text-white">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(payload[0].value)}</p>
+  </div>
+) : null
 const Input = ({ className = '', ...props }) => <input {...props} className={`rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 dark:border-white/15 dark:bg-[#111c35] dark:text-white ${className}`} />
 const Button = ({ children, className = '', ...props }) => <button {...props} className={`inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 cursor-pointer dark:border-white/15 dark:bg-slate-900 ${className}`}>{children}</button>
 const Table = ({ children }) => <table className="w-full text-sm">{children}</table>
@@ -78,6 +84,20 @@ const SuperAdminSalesPage = () => {
   const [paymentData, setPaymentData] = useState([])
   const [storeSalesData, setStoreSalesData] = useState([])
   const [adminBreakdown, setAdminBreakdown] = useState([])
+  const [selectedAdminId, setSelectedAdminId] = useState(null)
+  const selectedAdmin = adminBreakdown.find((admin) => admin.storeId === selectedAdminId)
+  const [storeSearch, setStoreSearch] = useState('')
+  const [storeSort, setStoreSort] = useState('desc')
+  const [storePage, setStorePage] = useState(0)
+  const [storePageSize, setStorePageSize] = useState(10)
+  const filteredStores = adminBreakdown.filter((store) => `${store.storeName} ${store.storeAdminName} ${store.storeAdminEmail}`.toLowerCase().includes(storeSearch.trim().toLowerCase())).sort((a, b) => {
+    const dateDifference = (Date.parse(a.createdAt) || 0) - (Date.parse(b.createdAt) || 0)
+    const difference = dateDifference || Number(a.storeId) - Number(b.storeId)
+    return storeSort === 'desc' ? -difference : difference
+  })
+  const storeTotalPages = Math.ceil(filteredStores.length / storePageSize)
+  const currentStorePage = Math.min(storePage, Math.max(0, storeTotalPages - 1))
+  const visibleStores = filteredStores.slice(currentStorePage * storePageSize, (currentStorePage + 1) * storePageSize)
 
   useEffect(() => {
     fetchSalesData()
@@ -148,11 +168,6 @@ const SuperAdminSalesPage = () => {
         orderAPI.getSystemSummary(),
         Promise.all(allStores.map((store) => branchAPI.getByStoreId(store.id).catch(() => []))),
       ])
-      const allBranches = branchArrays.flat()
-      const branchToStore = {}
-      allStores.forEach((store, index) => {
-        branchArrays[index].forEach((branch) => { branchToStore[branch.id] = store })
-      })
 
       setStats({
         totalSales: summary.totalSales || 0,
@@ -179,49 +194,30 @@ const SuperAdminSalesPage = () => {
           }
         })
         .sort((a, b) => b.sales - a.sales)
-        .slice(0, 10))
+        .slice(0, 5))
 
       const salesByBranch = Object.fromEntries(
         (summary.branchSales || []).map((item) => [item.id, item])
       )
 
-      const branchRows = allBranches.map((branch) => {
-        const store = branchToStore[branch.id]
-        const aggregate = salesByBranch[branch.id] || { sales: 0, orders: 0 }
-        return {
-          storeAdminId: store?.storeAdmin?.id ?? 'unknown',
-          storeAdminName: store?.storeAdmin?.fullName || 'Unassigned',
-          storeAdminEmail: store?.storeAdmin?.email || '',
-          storeName: store?.brand || 'Unknown Store',
+      setAdminBreakdown(allStores.map((store, index) => {
+        const branches = branchArrays[index].map((branch) => ({
           branchName: branch.name || `Branch ${branch.id}`,
-          sales: aggregate.sales,
-          orders: aggregate.orders,
+          sales: Number(salesByBranch[branch.id]?.sales || 0),
+          orders: Number(salesByBranch[branch.id]?.orders || 0),
+        }))
+        return {
+          storeId: store.id,
+          createdAt: store.createdAt,
+          storeAdminId: store.storeAdmin?.id ?? 'unknown',
+          storeAdminName: store.storeAdmin?.fullName || 'Unassigned',
+          storeAdminEmail: store.storeAdmin?.email || '',
+          storeName: store.brand || store.name || `Store ${store.id}`,
+          totalSales: branches.reduce((total, branch) => total + branch.sales, 0),
+          totalOrders: branches.reduce((total, branch) => total + branch.orders, 0),
+          branches,
         }
-      })
-
-      // Group rows under each Store Admin, with a running total per admin, so the UI
-      // can show "this admin made X, split across these branches" instead of one flat list.
-      const grouped = {}
-      branchRows.forEach((row) => {
-        if (!grouped[row.storeAdminId]) {
-          grouped[row.storeAdminId] = {
-            storeAdminId: row.storeAdminId,
-            storeAdminName: row.storeAdminName,
-            storeAdminEmail: row.storeAdminEmail,
-            storeName: row.storeName,
-            totalSales: 0,
-            totalOrders: 0,
-            branches: [],
-          }
-        }
-        grouped[row.storeAdminId].totalSales += row.sales
-        grouped[row.storeAdminId].totalOrders += row.orders
-        grouped[row.storeAdminId].branches.push(row)
-      })
-
-      setAdminBreakdown(
-        Object.values(grouped).sort((a, b) => b.totalSales - a.totalSales)
-      )
+      }))
     } catch (error) {
       console.error('Error fetching sales data:', error)
     } finally {
@@ -379,7 +375,7 @@ const SuperAdminSalesPage = () => {
   }
 
   return (
-    <div className="h-full overflow-auto p-4 sm:p-5">
+    <div className="super-admin-sales h-full overflow-auto p-4 sm:p-5">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">System-Wide Sales</h1>
@@ -461,21 +457,23 @@ const SuperAdminSalesPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <Card>
           <CardHeader>
-            <CardTitle>Daily Sales (Last 7 Days)</CardTitle>
+            <CardTitle>Daily Sales</CardTitle>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Sales recorded each day · Last 7 days</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
+            <ResponsiveContainer width="100%" height={210}>
+              <LineChart data={salesData} margin={{ top: 12, right: 16, left: 4, bottom: 4 }}>
+                <CartesianGrid stroke="#94a3b8" strokeOpacity={0.18} strokeDasharray="4 4" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickMargin={10} minTickGap={16} />
+                <YAxis width={64} tickFormatter={compactMoney} tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                <Tooltip content={<SalesTooltip />} />
                 <Line
                   type="monotone"
                   dataKey="sales"
                   stroke="#0088FE"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: '#0088FE', strokeWidth: 2 }}
+                  activeDot={{ r: 5 }}
                   name="Sales"
                 />
               </LineChart>
@@ -485,19 +483,22 @@ const SuperAdminSalesPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Payment Methods Distribution</CardTitle>
+            <CardTitle>Payment Breakdown</CardTitle>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Recorded sales by payment method · All time</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={paymentData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="value" fill="#10b981" name="Amount" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-4 py-2">
+              {paymentData.map((method, index) => {
+                const total = paymentData.reduce((sum, item) => sum + Number(item.value || 0), 0)
+                const share = total > 0 ? Number(method.value) / total * 100 : 0
+                const color = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500'][index % 3]
+                return <div key={method.name}>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm"><span className="flex items-center gap-2 font-medium"><span className={`size-2 rounded-full ${color}`} />{method.name}</span><span className="font-semibold tabular-nums">{formatCurrency(method.value)} <span className="ml-2 text-xs font-normal text-slate-500 dark:text-slate-400">{share.toFixed(1)}%</span></span></div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5"><div className={`h-full rounded-full ${color}`} style={{ width: `${Math.max(0, Math.min(100, share))}%` }} /></div>
+                </div>
+              })}
+              {!paymentData.length && <p className="py-12 text-center text-sm text-slate-500">No payment data yet.</p>}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -507,18 +508,27 @@ const SuperAdminSalesPage = () => {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Top Stores by Sales</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">A compact comparison of the highest-performing stores</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Top 5 stores ranked by recorded sales · All time</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={Math.max(170, storeSalesData.length * 48)}>
-              <BarChart data={storeSalesData} layout="vertical" margin={{ top: 4, right: 28, left: 12, bottom: 4 }} barCategoryGap="28%">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.35} />
-                <XAxis type="number" tickFormatter={(value) => `₹${new Intl.NumberFormat('en-IN', { notation: 'compact' }).format(value)}`} />
-                <YAxis type="category" dataKey="name" width={130} tickLine={false} axisLine={false} />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Bar dataKey="sales" fill="#6366f1" name="Sales" maxBarSize={30} radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Rank</TableHead>
+                  <TableHead>Store</TableHead>
+                  <TableHead className="text-right">Total Orders</TableHead>
+                  <TableHead className="text-right">Total Sales</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{storeSalesData.map((store, index) => (
+                  <TableRow key={`${store.name}-${index}`}>
+                    <TableCell className="w-16"><span className="inline-flex size-7 items-center justify-center rounded-lg bg-indigo-500/10 text-xs font-semibold text-indigo-500">{index + 1}</span></TableCell>
+                    <TableCell className="font-medium">{store.name}</TableCell>
+                    <TableCell className="text-right tabular-nums">{store.orders}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatCurrency(store.sales)}</TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -529,54 +539,87 @@ const SuperAdminSalesPage = () => {
           <CardHeader>
             <CardTitle>Sales by Store Admin & Branch</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Every store admin on the platform, and how their sales split across their branches
+              Store totals at a glance. Select the info button to see admin and branch details.
             </p>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <div className="relative min-w-48 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <Input aria-label="Search store sales" placeholder="Search store or admin…" value={storeSearch} onChange={(event) => { setStoreSearch(event.target.value); setStorePage(0) }} className="w-full pl-10 text-sm" />
+              </div>
+              <select aria-label="Store order" value={storeSort} onChange={(event) => { setStoreSort(event.target.value); setStorePage(0) }} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-white/15 dark:bg-[#111c35]">
+                <option value="desc">Newest first</option><option value="asc">Oldest first</option>
+              </select>
+              <select aria-label="Stores per page" value={storePageSize} onChange={(event) => { setStorePageSize(Number(event.target.value)); setStorePage(0) }} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-white/15 dark:bg-[#111c35]">
+                <option value={10}>10 per page</option><option value={25}>25 per page</option>
+              </select>
+            </div>
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Store Admin</TableHead>
-                    <TableHead>Store</TableHead>
-                    <TableHead>Branch</TableHead>
-                    <TableHead>Orders</TableHead>
-                    <TableHead className="text-right">Sales</TableHead>
+                <TableHeader><TableRow>
+                  <TableHead>Store</TableHead>
+                  <TableHead className="text-right">Total Sales</TableHead>
+                  <TableHead className="text-right">Total Orders</TableHead>
+                  <TableHead className="text-right">Details</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{visibleStores.map((admin) => (
+                  <TableRow key={admin.storeId}>
+                    <TableCell className="font-medium"><div className="flex items-center gap-2"><Store className="size-4 shrink-0 text-blue-500" /><span className="break-words">{admin.storeName}</span></div></TableCell>
+                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatCurrency(admin.totalSales)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{admin.totalOrders}</TableCell>
+                    <TableCell className="text-right"><button type="button" onClick={() => setSelectedAdminId(admin.storeId)} aria-label={`View details for ${admin.storeName}`} title="View store details" className="inline-flex size-8 items-center justify-center rounded-lg text-blue-500 transition-colors hover:bg-blue-500/10 focus-visible:outline-2 focus-visible:outline-blue-500"><Info className="size-4" /></button></TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {adminBreakdown.map((admin) => (
-                    <React.Fragment key={admin.storeAdminId}>
-                      {admin.branches.map((branch, idx) => (
-                        <TableRow key={`${admin.storeAdminId}-${branch.branchName}-${idx}`}>
-                          {idx === 0 ? (
-                            <TableCell rowSpan={admin.branches.length} className="align-top font-medium border-r">
-                              <div>{admin.storeAdminName}</div>
-                              <div className="text-xs text-muted-foreground">{admin.storeAdminEmail}</div>
-                            </TableCell>
-                          ) : null}
-                          {idx === 0 ? (
-                            <TableCell rowSpan={admin.branches.length} className="align-top border-r">
-                              {admin.storeName}
-                            </TableCell>
-                          ) : null}
-                          <TableCell>{branch.branchName}</TableCell>
-                          <TableCell>{branch.orders}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(branch.sales)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-slate-50 font-semibold dark:bg-white/5">
-                        <TableCell colSpan={3} className="text-right text-slate-600 dark:text-slate-300">
-                          Total for {admin.storeAdminName}
-                        </TableCell>
-                        <TableCell>{admin.totalOrders}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(admin.totalSales)}</TableCell>
-                      </TableRow>
-                    </React.Fragment>
-                  ))}
-                </TableBody>
+                ))}</TableBody>
               </Table>
             </div>
+            {!filteredStores.length && <p className="py-8 text-center text-sm text-slate-500">No stores match your search.</p>}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3 dark:border-white/10">
+              <span className="text-xs text-slate-500">Showing {filteredStores.length ? currentStorePage * storePageSize + 1 : 0}–{Math.min((currentStorePage + 1) * storePageSize, filteredStores.length)} of {filteredStores.length} stores · Page {storeTotalPages ? currentStorePage + 1 : 0} of {storeTotalPages}</span>
+              <div className="flex gap-2">
+                <Button disabled={currentStorePage === 0} onClick={() => setStorePage(currentStorePage - 1)} className="text-xs disabled:opacity-50">Previous</Button>
+                <Button disabled={currentStorePage + 1 >= storeTotalPages} onClick={() => setStorePage(currentStorePage + 1)} className="text-xs disabled:opacity-50">Next</Button>
+              </div>
+            </div>
+            <Dialog open={Boolean(selectedAdmin)} onOpenChange={(open) => { if (!open) setSelectedAdminId(null) }}>
+              <DialogContent className="max-h-[80vh] overflow-y-auto rounded-2xl border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900 sm:max-w-xl">
+                <DialogHeader className="pr-6">
+                  <DialogTitle className="text-base">Store Sales Details</DialogTitle>
+                  <DialogDescription className="text-xs">All-time store totals and sales across each branch.</DialogDescription>
+                </DialogHeader>
+              {adminBreakdown.filter((admin) => admin.storeId === selectedAdminId).map((admin) => (
+                <section key={admin.storeId} className="min-w-0 overflow-hidden rounded-xl border border-slate-200 dark:border-white/10">
+                  <div className="flex items-start gap-2 border-b border-slate-100 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[0.02]">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500"><Store className="size-4" /></span>
+                    <div className="min-w-0">
+                      <h3 className="break-words text-sm font-semibold text-slate-900 dark:text-white">{admin.storeName}</h3>
+                      <p className="mt-0.5 break-words text-[11px] text-slate-500 dark:text-slate-400">Admin: {admin.storeAdminName}</p>
+                      {admin.storeAdminEmail && <p className="break-all text-[11px] text-slate-500 dark:text-slate-400">{admin.storeAdminEmail}</p>}
+                    </div>
+                  </div>
+                  <dl className="grid grid-cols-3 gap-2 border-b border-slate-100 px-3 py-2 dark:border-white/10">
+                    <div className="col-span-2"><dt className="text-[11px] text-slate-500 dark:text-slate-400">Total sales</dt><dd className="mt-0.5 break-words text-base font-bold tracking-tight">{formatCurrency(admin.totalSales)}</dd></div>
+                    <div><dt className="text-[11px] text-slate-500 dark:text-slate-400">Total orders</dt><dd className="mt-0.5 text-base font-semibold tabular-nums">{admin.totalOrders}</dd></div>
+                  </dl>
+                  <div className="p-3">
+                    <div className="mb-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400"><span>Branch breakdown</span><span>{admin.branches.length} {admin.branches.length === 1 ? 'branch' : 'branches'}</span></div>
+                    <ul className="divide-y divide-slate-100 dark:divide-white/5">
+                      {admin.branches.map((branch, idx) => {
+                        const share = admin.totalSales > 0 ? Math.min(100, Math.max(0, branch.sales / admin.totalSales * 100)) : 0
+                        return <li key={`${admin.storeAdminId}-${branch.branchName}-${idx}`} className="py-2 first:pt-0 last:pb-0">
+                          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 text-xs">
+                            <div className="min-w-0 flex-1"><p className="break-words font-medium">{branch.branchName}</p><p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{branch.orders} {Number(branch.orders) === 1 ? 'order' : 'orders'}</p></div>
+                            <span className="font-semibold tabular-nums">{formatCurrency(branch.sales)}</span>
+                          </div>
+                          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10" role="img" aria-label={`${branch.branchName}: ${share.toFixed(1)}% of store sales`}><div className="h-full rounded-full bg-blue-500" style={{ width: `${share}%` }} /></div>
+                        </li>
+                      })}
+                    </ul>
+                  </div>
+                </section>
+              ))}
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
       )}

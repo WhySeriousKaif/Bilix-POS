@@ -211,7 +211,7 @@ const SuperAdminLayout = ({ children }) => {
   const initial = displayName.charAt(0).toUpperCase()
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#F8FAFE] dark:bg-[#0B1220] text-slate-900 dark:text-slate-100 overflow-hidden transition-colors">
+    <div className="super-admin-density h-screen w-screen flex flex-col bg-[#F8FAFE] dark:bg-[#0B1220] text-slate-900 dark:text-slate-100 overflow-hidden transition-colors">
       {/* Header */}
       <header className="h-16 shrink-0 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 flex items-center justify-between px-4 sm:px-6 z-10 gap-4">
         <div className="flex items-center gap-2 min-w-0">

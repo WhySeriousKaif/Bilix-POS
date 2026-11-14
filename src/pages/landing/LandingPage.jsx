@@ -81,7 +81,7 @@ function SimpleBenefitsCarousel({ children }) {
 
 function PlatformPreviewItem({ item }) {
   return (
-    <div className="grid items-center gap-8 lg:grid-cols-[0.8fr_1.7fr]">
+    <div className="grid items-center gap-8 lg:grid-cols-[0.65fr_2fr]">
       <div className="text-center lg:text-left">
         <span className="mb-4 inline-block rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
           {item.role}
@@ -95,7 +95,7 @@ function PlatformPreviewItem({ item }) {
           <span className="ml-2 text-[10px] font-semibold tracking-wide text-slate-500">bilix workspace</span>
         </div>
         <div className="overflow-hidden rounded-xl bg-slate-900">
-          <img src={item.image} alt={item.title} className="block max-h-[600px] w-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.01]" />
+          <img src={item.image} alt={item.title} className="block max-h-[760px] w-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.01]" />
         </div>
       </div>
     </div>
@@ -259,7 +259,7 @@ const LandingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFE] dark:bg-[#0F1729] text-slate-900 dark:text-slate-100 selection:bg-blue-800 selection:text-white transition-colors">
+    <div className="landing-density min-h-screen bg-[#F8FAFE] dark:bg-[#0F1729] text-slate-900 dark:text-slate-100 selection:bg-blue-800 selection:text-white transition-colors">
       <Navbar />
 
       {/* Hero Section with Full-Screen Video Background - Fill Entire Window (100vh) */}
@@ -559,7 +559,7 @@ const LandingPage = () => {
                 image: '/SuperAdmin.png',
                 role: 'SUPER ADMIN',
                 title: 'Company-wide visibility and control',
-                description: 'Monitor stores, sales, refunds, subscriptions, and platform health from one secure command center.',
+                description: 'Monitor stores, sales, refunds, subscriptions, staff access, and platform health from one secure command center with clear system-wide controls.',
               },
               {
                 image: '/cashierPage.png',
@@ -571,13 +571,13 @@ const LandingPage = () => {
                 image: '/managerPage.png',
                 role: 'BRANCH MANAGER',
                 title: 'The live pulse of one branch',
-                description: "Today's sales, active staff, refunds, and payment mix — updated in real time, with a 7-day revenue trend at a glance.",
+                description: "Track today’s sales, active staff, refunds, inventory, and payment mix in real time, with a branch-level revenue trend at a glance.",
               },
               {
                 image: '/StoreAdminPage.png',
                 role: 'STORE ADMIN',
                 title: 'The full business, at a glance',
-                description: 'Every branch, every product, every employee — rolled up into one dashboard, so nothing needs a spreadsheet to explain it.',
+                description: 'Every branch, product, employee, customer, and report is connected in one workspace, so decisions come from live data instead of spreadsheets.',
               },
             ]
             const [activeRole, setActiveRole] = React.useState(0)
@@ -592,9 +592,9 @@ const LandingPage = () => {
                       role="tab"
                       aria-selected={activeRole === index}
                       onClick={() => setActiveRole(index)}
-                      className={`group rounded-2xl border p-4 text-left transition-all duration-300 ${activeRole === index ? 'border-blue-500 bg-blue-600 text-white shadow-xl shadow-blue-500/25' : 'border-slate-200 bg-white/80 text-slate-700 hover:-translate-y-1 hover:border-blue-300 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-200'}`}
+                      className={`group rounded-xl border p-3 text-left transition-all duration-300 ${activeRole === index ? 'border-blue-500 bg-blue-600 text-white shadow-xl shadow-blue-500/25' : 'border-slate-200 bg-white/80 text-slate-700 hover:-translate-y-1 hover:border-blue-300 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-200'}`}
                     >
-                      <span className={`mb-3 block size-3 rounded-full ring-4 ${activeRole === index ? 'bg-white ring-white/20' : 'bg-blue-500 ring-blue-500/10'}`} />
+                      <span className={`mb-2 block size-2.5 rounded-full ring-4 ${activeRole === index ? 'bg-white ring-white/20' : 'bg-blue-500 ring-blue-500/10'}`} />
                       <span className="block text-xs font-black tracking-widest">{role.role}</span>
                       <span className={`mt-1 block text-xs ${activeRole === index ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'}`}>Explore workspace</span>
                     </button>
@@ -656,22 +656,22 @@ const LandingPage = () => {
               {
                 icon: Zap,
                 title: 'No Setup Fees',
-                description: 'Start billing today. No onboarding cost, no hidden charges to get going.',
+                description: 'Start billing today with a clear workflow, guided onboarding, and no surprise setup charges standing between your team and the first sale.',
               },
               {
                 icon: Shield,
                 title: 'Works Without Internet',
-                description: "Most platforms stop cold on a dropped connection. Bilix keeps billing and syncs later.",
+                description: "Keep serving customers through brief outages. Bilix keeps the counter moving and synchronizes transactions when the connection returns.",
               },
               {
                 icon: Store,
                 title: 'Built for Chains from Day One',
-                description: 'Run 2 branches or 200 from one dashboard — no extra charge per location.',
+                description: 'Run a single shop or a growing network from one dashboard, with branch-level permissions, inventory visibility, and reporting built in.',
               },
               {
                 icon: Users,
                 title: 'Real Human Support',
-                description: "Talk to a person, not a ticket queue, whenever something breaks.",
+                description: "Get practical help from a real person when you need it, with support that understands retail operations and checkout workflows.",
               },
             ].map((item) => <WhyUsCard key={item.title} item={item} />)}
           </div>

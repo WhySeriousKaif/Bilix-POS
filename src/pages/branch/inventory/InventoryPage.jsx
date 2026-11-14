@@ -234,7 +234,7 @@ const InventoryPage = () => {
   const visibleInventory = filteredInventory.slice(page * pageSize, (page + 1) * pageSize)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Top Banner */}
       <PageHeader title="Branch Inventory" badge={`${inventory.length} products`}
         description="Monitor stock levels and update product quantities for this branch."
@@ -257,51 +257,51 @@ const InventoryPage = () => {
         </>} />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-6 flex items-center justify-between">
+          <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Products</p>
-              <div className="text-3xl font-black text-slate-900 dark:text-white mt-1.5">{summary.totalItems}</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{summary.totalItems}</div>
             </div>
-            <div className="size-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600">
-              <Boxes className="size-6" />
+            <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600">
+              <Boxes className="size-5" />
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-6 flex items-center justify-between">
+          <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sufficient Stock</p>
-              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1.5">{summary.inStock}</div>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{summary.inStock}</div>
             </div>
-            <div className="size-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-              <CheckCircle2 className="size-6" />
+            <div className="size-10 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+              <CheckCircle2 className="size-5" />
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-6 flex items-center justify-between">
+          <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Low Stock Warnings</p>
-              <div className="text-3xl font-black text-amber-600 dark:text-amber-400 mt-1.5">{summary.lowStock}</div>
+              <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{summary.lowStock}</div>
             </div>
-            <div className="size-12 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-600">
-              <AlertCircle className="size-6" />
+            <div className="size-10 rounded-lg bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-600">
+              <AlertCircle className="size-5" />
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="p-6 flex items-center justify-between">
+          <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Out of Stock</p>
-              <div className="text-3xl font-black text-rose-600 dark:text-rose-400 mt-1.5">{summary.outOfStock}</div>
+              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{summary.outOfStock}</div>
             </div>
-            <div className="size-12 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-600">
-              <AlertCircle className="size-6" />
+            <div className="size-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-600">
+              <AlertCircle className="size-5" />
             </div>
           </CardContent>
         </Card>
@@ -309,7 +309,7 @@ const InventoryPage = () => {
 
       {/* Search Bar */}
       <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm">
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />

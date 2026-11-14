@@ -17,6 +17,7 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
+  X,
 } from 'lucide-react'
 import { format, formatDistanceToNow, isValid, parseISO } from 'date-fns'
 import {
@@ -310,6 +311,8 @@ const StoreAdminDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [performanceOpen, setPerformanceOpen] = useState(false)
+  const [topProductsOpen, setTopProductsOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -673,18 +676,27 @@ const StoreAdminDashboard = () => {
 
           <Panel
             title="Branch Performance"
-            action={<PanelLink href="/store/branches">View All</PanelLink>}
+            action={
+              <button
+                type="button"
+                onClick={() => setPerformanceOpen(true)}
+                className="group inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                View All
+                <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            }
             bodyClassName="p-0"
           >
             {branchPerformance.length ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[420px] text-sm">
+              <div className="overflow-hidden">
+                <table className="w-full table-fixed text-xs sm:text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-400 dark:border-white/10">
-                      <th className="px-5 py-2.5 text-left font-semibold">Branch</th>
-                      <th className="px-5 py-2.5 text-right font-semibold">Sales</th>
-                      <th className="px-5 py-2.5 text-right font-semibold">Orders</th>
-                      <th className="px-5 py-2.5 text-right font-semibold">AOV</th>
+                      <th className="w-[42%] px-3 py-2.5 text-left font-semibold">Branch</th>
+                      <th className="w-[22%] px-2 py-2.5 text-right font-semibold">Sales</th>
+                      <th className="w-[16%] px-2 py-2.5 text-right font-semibold">Orders</th>
+                      <th className="w-[20%] px-3 py-2.5 text-right font-semibold">AOV</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -695,7 +707,7 @@ const StoreAdminDashboard = () => {
                           key={branch.branchId ?? branch.name}
                           className="transition-colors hover:bg-slate-50 dark:hover:bg-white/5"
                         >
-                          <td className="px-5 py-3">
+                          <td className="px-3 py-2.5">
                             <span className="flex items-center gap-2.5">
                               <span
                                 className="size-2.5 shrink-0 rounded-full"
@@ -706,13 +718,13 @@ const StoreAdminDashboard = () => {
                               </span>
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-right font-semibold tabular-nums text-slate-900 dark:text-white">
+                          <td className="whitespace-nowrap px-2 py-2.5 text-right font-semibold tabular-nums text-slate-900 dark:text-white">
                             {formatCurrency(branch.sales)}
                           </td>
-                          <td className="px-5 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                          <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums text-slate-600 dark:text-slate-300">
                             {formatNumber(branch.orders)}
                           </td>
-                          <td className="px-5 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                          <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-slate-600 dark:text-slate-300">
                             {formatCurrency(branch.averageOrderValue)}
                           </td>
                         </tr>
@@ -800,7 +812,15 @@ const StoreAdminDashboard = () => {
           <Panel
             title="Top Products"
             subtitle="Ranked by revenue in this period"
-            action={<PanelLink href="/store/products">View All</PanelLink>}
+            action={
+              <button
+                type="button"
+                onClick={() => setTopProductsOpen(true)}
+                className="inline-flex items-center gap-1 text-sm font-semibold text-blue-500 transition-colors hover:text-blue-400"
+              >
+                View All <ArrowRight className="size-4" />
+              </button>
+            }
             className="xl:col-span-2"
             bodyClassName="p-0"
           >
@@ -897,6 +917,149 @@ const StoreAdminDashboard = () => {
             </div>
           </Panel>
         </div>
+
+        {performanceOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+            onMouseDown={() => setPerformanceOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="branch-performance-title"
+              className="w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
+                <div>
+                  <h2 id="branch-performance-title" className="text-base font-semibold text-slate-900 dark:text-white">
+                    Branch Performance
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Sales, orders, and average order value for {rangeLabel.toLowerCase()}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close branch performance"
+                  onClick={() => setPerformanceOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="max-h-[60vh] overflow-y-auto p-3 sm:p-4">
+                <table className="w-full table-fixed text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-400 dark:border-white/10">
+                      <th className="w-[45%] px-3 py-2 text-left font-semibold">Branch</th>
+                      <th className="w-[20%] px-2 py-2 text-right font-semibold">Sales</th>
+                      <th className="w-[15%] px-2 py-2 text-right font-semibold">Orders</th>
+                      <th className="w-[20%] px-3 py-2 text-right font-semibold">AOV</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                    {branchPerformance.map((branch, index) => {
+                      const tone = branchTone(index)
+                      return (
+                        <tr key={branch.branchId ?? branch.name}>
+                          <td className="px-3 py-3 font-medium text-slate-800 dark:text-slate-100">
+                            <span className="flex items-center gap-2">
+                              <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: tone.dot }} />
+                              <span className="truncate">{branch.name}</span>
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-3 text-right font-semibold tabular-nums text-slate-900 dark:text-white">
+                            {formatCurrency(branch.sales)}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                            {formatNumber(branch.orders)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                            {formatCurrency(branch.averageOrderValue)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+        {topProductsOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+            onMouseDown={() => setTopProductsOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="top-products-title"
+              className="w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
+                <div>
+                  <h2 id="top-products-title" className="text-base font-semibold text-slate-900 dark:text-white">
+                    Top Products
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Best-selling products for {rangeLabel?.toLowerCase() || 'the selected period'}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close top products"
+                  onClick={() => setTopProductsOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="max-h-[60vh] overflow-y-auto p-3 sm:p-4">
+                {topProducts.length ? (
+                  <table className="w-full table-fixed text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-400 dark:border-white/10">
+                        <th className="w-10 px-3 py-2 text-left font-semibold">#</th>
+                        <th className="px-3 py-2 text-left font-semibold">Product</th>
+                        <th className="w-32 px-3 py-2 text-right font-semibold">Units Sold</th>
+                        <th className="w-36 px-3 py-2 text-right font-semibold">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                      {topProducts.map((product, index) => (
+                        <tr key={product.productId ?? `${product.name}-${index}`}>
+                          <td className="px-3 py-3 text-xs font-bold tabular-nums text-slate-400 dark:text-slate-500">
+                            {index + 1}
+                          </td>
+                          <td className="px-3 py-3 font-medium text-slate-800 dark:text-slate-100">
+                            <span className="flex items-center gap-2">
+                              <span className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5">
+                                {product.image && <img src={product.image} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+                                <Package className="size-4 text-slate-400" />
+                              </span>
+                              <span className="truncate">{product.name}</span>
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                            {formatNumber(product.unitsSold)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums text-slate-900 dark:text-white">
+                            {formatCurrency(product.revenue)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <EmptyState icon={Package} title="No product sales yet" hint="Products you sell will be ranked here automatically." />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
